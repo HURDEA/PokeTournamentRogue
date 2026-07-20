@@ -1,0 +1,35 @@
+[
+    {
+        "boxNumber": 1,
+        "evolutionStage": 1,
+        "heldItem": "None",
+        "id": 1,
+        "level": 5,
+        "nickname": "Squirtle",
+        "speciesId": 7,
+        "type1": "Water",
+        "type2": ""
+    },
+    {
+        "boxNumber": 1,
+        "evolutionStage": 1,
+        "heldItem": "None",
+        "id": 2,
+        "level": 5,
+        "nickname": "Charmander",
+        "speciesId": 4,
+        "type1": "Fire",
+        "type2": ""
+    },
+    {
+        "boxNumber": 2,
+        "evolutionStage": 1,
+        "heldItem": "None",
+        "id": 3,
+        "level": 15,
+        "nickname": "Psyduck",
+        "speciesId": 54,
+        "type1": "Water",
+        "type2": ""
+    }
+]
