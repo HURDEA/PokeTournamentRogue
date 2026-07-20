@@ -75,13 +75,13 @@ void BattleEngine::checkExtremeWeather(const Pokemon& p1, const Pokemon& p2, std
     }
 }
 
-int BattleEngine::getEffectiveSpeed(const Pokemon& p, const Pokemon& opp) {
+int BattleEngine::getEffectiveSpeed(const Pokemon& p, const Pokemon& opp, bool isPlayerSide) {
     int spd = p.getBattleSpeed();
     std::string abil = p.getAbility();
     std::string item = (field.magicRoom > 0) ? "NONE" : normalizeString(p.getHeldItem());
     std::string weather = getActiveWeather(p, opp);
 
-    bool isPlayerSide = (p.getBoxNumber() == 0);
+    // FIXED: Explicit side checking instead of Box 0
     const SideState& side = isPlayerSide ? playerSide : enemySide;
 
     if (abil == "Swift Swim" && (weather == "Rain" || weather == "PrimordialSea")) spd *= 2;
@@ -323,7 +323,7 @@ void BattleEngine::onSwitchIn(Pokemon& p, bool isPlayer, std::vector<std::string
     checkSeeds(p);
 }
 
-int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, const MoveData& move, bool isCrit, std::vector<std::string>& log, bool isFirstHit) {
+int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, const MoveData& move, bool isCrit, std::vector<std::string>& log, bool isFirstHit, bool isPlayerAttacker) {
     if (move.name == "Seismic Toss" || move.name == "Night Shade") return std::max(1, attacker.getLevel());
     if (move.name == "Dragon Rage") return 40;
     if (move.name == "Sonic Boom") return 20;
@@ -453,14 +453,14 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
     if (aAbil == "Liquid Voice" && isSound) currentType = "Water";
 
     if (move.name == "Gyro Ball") {
-        int aSpd = getEffectiveSpeed(attacker, defender);
-        int dSpd = getEffectiveSpeed(defender, attacker);
+        int aSpd = getEffectiveSpeed(attacker, defender, isPlayerAttacker);
+        int dSpd = getEffectiveSpeed(defender, attacker, !isPlayerAttacker);
         if (aSpd == 0) aSpd = 1;
         currentPower = std::min(150, static_cast<int>(25.0 * dSpd / aSpd) + 1);
     }
     else if (move.name == "Electro Ball") {
-        int aSpd = getEffectiveSpeed(attacker, defender);
-        int dSpd = getEffectiveSpeed(defender, attacker);
+        int aSpd = getEffectiveSpeed(attacker, defender, isPlayerAttacker);
+        int dSpd = getEffectiveSpeed(defender, attacker, !isPlayerAttacker);
         if (dSpd == 0) dSpd = 1;
         double ratio = static_cast<double>(aSpd) / dSpd;
         if (ratio >= 4.0) currentPower = 150;
@@ -529,7 +529,6 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
     }
 
     // --- SCREEN / SHIELD MITIGATION FIX ---
-    bool isPlayerAttacker = (attacker.getBoxNumber() == 0);
     const SideState& defSide = isPlayerAttacker ? enemySide : playerSide;
 
     if (!isCrit && aAbil != "Infiltrator") {
@@ -617,11 +616,7 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
     double damage = std::floor(std::floor(std::floor(2.0 * attacker.getLevel() / 5.0 + 2.0) * currentPower * a / d) / 50.0) + 2.0;
 
     if (aAbil == "Supreme Overlord") {
-        int fainted = 0;
-        auto all = controller.getAllPokemon();
-        for (const auto& p : all) {
-            if (p.getBoxNumber() == attacker.getBoxNumber() && p.getCurrentHp() <= 0) fainted++;
-        }
+        int fainted = isPlayerAttacker ? playerSide.faintedCount : enemySide.faintedCount;
         damage *= (1.0 + (std::min(5, fainted) * 0.1));
     }
 
@@ -1868,7 +1863,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             isCrit = false;
         }
 
-        int dmg = calculateDamageInternal(attacker, defender, move, isCrit, log, (i == 0));
+        int dmg = calculateDamageInternal(attacker, defender, move, isCrit, log, (i == 0), isPlayerAttacking);
         if (dmg == 0) break;
 
         std::string dItemLoop = (field.magicRoom > 0) ? "NONE" : normalizeString(defender.getHeldItem());
@@ -2391,8 +2386,6 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         }
     }
 
-    // --- PHAZING FIX ---
-    // Moved completely out of the damage block so Roar and Whirlwind finally trigger!
     if (move.name == "Roar" || move.name == "Whirlwind" || (actualHits > 0 && (move.name == "Dragon Tail" || move.name == "Circle Throw"))) {
         if (defender.hasVolatile("ingrain") || dAbil == "Suction Cups") {
             log.push_back(defender.getNickname() + " anchors itself!");
@@ -2412,6 +2405,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
     attacker.addVolatile("moved_this_turn", 1);
 }
+
 void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::string>& log) {
     auto tickField = [&](int& counter, const std::string& expirationMsg) {
         if (counter > 0) {

@@ -240,3 +240,30 @@ void Controller::evolvePokemon(int partyId, int newSpeciesId) {
     auto cmd = std::make_unique<EvolveCommand>(*repository, oldP, evolved);
     executeCommand(std::move(cmd));
 }
+
+void Controller::factoryReset() {
+    // 1. Release every single Pokémon in the database
+    std::vector<Pokemon> allPokes = getAllPokemon();
+    for (const auto& p : allPokes) {
+        releasePokemon(p.getId());
+    }
+
+    // 2. Drain all Money
+    int currentMoney = getMoney();
+    if (currentMoney > 0) {
+        spendMoney(currentMoney);
+    }
+
+    // 3. Trash all Items
+    std::map<std::string, int> bag = getInventory();
+    for (const auto& item : bag) {
+        if (item.second > 0) {
+            consumeItem(item.first, item.second);
+        }
+    }
+
+    // Optional: If your undo/redo stacks are accessible here, clear them 
+    // so the player can't "Undo" the factory reset and get their team back!
+    // undoStack = std::stack<std::unique_ptr<Command>>();
+    // redoStack = std::stack<std::unique_ptr<Command>>();
+}

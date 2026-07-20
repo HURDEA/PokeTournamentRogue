@@ -120,6 +120,11 @@ BattleDialog::BattleDialog(Controller& ctrl, const std::vector<Pokemon>& pParty,
 
     engine = std::make_unique<BattleEngine>(controller);
 
+    int pFaints = 0; for (const auto& pk : playerParty) if (pk.getCurrentHp() <= 0) pFaints++;
+    int eFaints = 0; for (const auto& pk : enemyParty) if (pk.getCurrentHp() <= 0) eFaints++;
+    engine->setFaintedCount(true, pFaints);
+    engine->setFaintedCount(false, eFaints);
+
     updateBattleDisplay();
 
     engine->onSwitchIn(playerParty[currentPlayerIndex], true, currentLog, &enemyParty[currentEnemyIndex]);
@@ -933,8 +938,8 @@ void BattleDialog::beginTurn(const std::string& playerMove) {
     if (p1Pri > p2Pri) playerGoesFirst = true;
     else if (p2Pri > p1Pri) playerGoesFirst = false;
     else {
-        int p1Speed = engine->getEffectiveSpeed(p, e);
-        int p2Speed = engine->getEffectiveSpeed(e, p);
+        int p1Speed = engine->getEffectiveSpeed(p, e, true);
+        int p2Speed = engine->getEffectiveSpeed(e, p, false);
         if (engine->getFieldState().trickRoom > 0) {
             if (p1Speed < p2Speed) playerGoesFirst = true;
             else if (p2Speed < p1Speed) playerGoesFirst = false;
@@ -1263,6 +1268,8 @@ void BattleDialog::executeEnemySwitch() {
 
 bool BattleDialog::checkFaint() {
     if (enemyParty[currentEnemyIndex].getCurrentHp() <= 0) {
+        engine->setFaintedCount(false, engine->getEnemySide().faintedCount + 1);
+
         currentLog.push_back("Opponent " + enemyParty[currentEnemyIndex].getName() + " fainted!");
         flushLog(false);
 
@@ -1303,6 +1310,8 @@ bool BattleDialog::checkFaint() {
     }
 
     if (playerParty[currentPlayerIndex].getCurrentHp() <= 0) {
+        engine->setFaintedCount(true, engine->getPlayerSide().faintedCount + 1);
+
         currentLog.push_back(playerParty[currentPlayerIndex].getNickname() + " fainted!");
         flushLog(false);
 

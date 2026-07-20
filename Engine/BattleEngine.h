@@ -18,6 +18,8 @@ struct SideState {
     int lightScreen = 0;
     int auroraVeil = 0;
     int safeguard = 0;
+
+    int faintedCount = 0; // NEW: Tracks faints symmetrically for abilities
 };
 
 struct FieldState {
@@ -56,15 +58,17 @@ public:
         else enemySide.substituteHp = 0;
     }
 
+    void setFaintedCount(bool isPlayerSide, int count) {
+        if (isPlayerSide) playerSide.faintedCount = count;
+        else enemySide.faintedCount = count;
+    }
+
     std::string getActiveWeather(const Pokemon& p1, const Pokemon& p2);
     void checkExtremeWeather(const Pokemon& p1, const Pokemon& p2, std::vector<std::string>& log);
 
-    int getEffectiveSpeed(const Pokemon& p, const Pokemon& opp);
+    int getEffectiveSpeed(const Pokemon& p, const Pokemon& opp, bool isPlayerSide);
     void onSwitchIn(Pokemon& p, bool isPlayer, std::vector<std::string>& log, Pokemon* opp = nullptr);
-
-    // MOVED TO PUBLIC: The AI needs this to calculate raw, exact damage numbers
-    int calculateDamageInternal(Pokemon& attacker, Pokemon& defender, const MoveData& move, bool isCrit, std::vector<std::string>& log, bool isFirstHit);
-
+    int calculateDamageInternal(Pokemon& attacker, Pokemon& defender, const MoveData& move, bool isCrit, std::vector<std::string>& log, bool isFirstHit, bool isPlayerAttacker);
     void executeMove(Pokemon& attacker, Pokemon& defender, const std::string& moveId, bool isPlayerAttacking, std::vector<std::string>& log, const std::string& defenderMoveId = "", std::function<void(bool)> animateFn = nullptr);
     void runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::string>& log);
 };

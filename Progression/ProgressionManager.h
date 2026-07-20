@@ -15,6 +15,7 @@ public:
     int getGauntletStreak() const { return currentGauntletStreak; }
     bool getTournamentUnlocked() const { return isTournamentUnlocked; }
 
+    void resetRun();
     void recordGauntletWin();
     void resetGauntletStreak();
     void unlockTournament();

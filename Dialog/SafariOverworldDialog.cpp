@@ -10,9 +10,13 @@
 #include <QSettings>
 #include <QSizePolicy>
 #include <cstdlib>
+#include <ctime> // NEW: Required for time()
 
 SafariOverworldDialog::SafariOverworldDialog(Controller& ctrl, const QString& avatarPath, const QString& zoneName, const std::vector<std::string>& allowedTypes, QWidget* parent)
     : QDialog(parent), controller(ctrl), playerAvatarPath(avatarPath), currentZoneName(zoneName), zoneTypes(allowedTypes) {
+
+    // NEW: Seed the random generator with the current time
+    srand(static_cast<unsigned int>(time(nullptr)));
 
     setupUI();
 

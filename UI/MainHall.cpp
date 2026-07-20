@@ -12,7 +12,7 @@
 #include <QSettings>
 #include <QApplication>
 #include <QSizePolicy>
-#include <QScrollArea> // NEW: For the guide dialog
+#include <QScrollArea> 
 #include "../Dialog/GauntletDialog.h"
 #include "../Dialog/TournamentDialog.h"
 
@@ -29,7 +29,7 @@ MainHall::MainHall(Controller& ctrl, QWidget* parent) : QMainWindow(parent), con
     themeComboBox->blockSignals(false);
 
     applyTheme(savedTheme);
-    refreshProgressionUI(); // NEW: Check progression states on boot
+    refreshProgressionUI(); // Check progression states on boot
 }
 
 void MainHall::refreshProgressionUI() {
@@ -38,11 +38,17 @@ void MainHall::refreshProgressionUI() {
         tournamentBtn->setStyleSheet(QString(R"(
             QPushButton {
                 background-color: transparent; color: #e74c3c; font-size: 14px; font-weight: 900;
-                padding: 10px; border: 2px solid #e74c3c; border-radius: 6px; 
-                letter-spacing: 1px; text-align: center;
+                padding: 10px; border: 2px solid #e74c3c; border-radius: 6px;
+                 letter-spacing: 1px; text-align: center;
             }
             QPushButton:hover { background-color: #e74c3c; color: #ffffff; }
         )"));
+    }
+    else {
+        // Reset to locked styling if progression is wiped
+        QString loreColor = themeComboBox->currentText() == "Pro Dark" ? "#6e7681" : "#7f8c8d"; // Fallback colors, fully handled by applyTheme
+        tournamentBtn->setText("GRAND TOURNAMENT (LOCKED)");
+        applyTheme(themeComboBox->currentText()); // Re-apply full theme to ensure correct locked border color
     }
 }
 
@@ -97,6 +103,10 @@ void MainHall::setupUI() {
     trainerBtn = new QPushButton("TRAINING HUB");
     battlesBtn = new QPushButton("PRACTICE GAUNTLETS");
     tournamentBtn = new QPushButton("GRAND TOURNAMENT (LOCKED)");
+
+    resetRunBtn = new QPushButton("DANGER: NEW RUN");
+    resetRunBtn->setObjectName("dangerBtn");
+
     exitBtn = new QPushButton("EXIT GAME");
 
     // Centered layout container for the buttons so they don't stretch too wide on huge monitors
@@ -138,7 +148,10 @@ void MainHall::setupUI() {
     addMenuOption(battlesBtn, "Test your team's strength in simulated combat scenarios to earn funding.");
     addMenuOption(tournamentBtn, "The ultimate challenge awaits. Only elite trainers may enter.");
 
-    menuLayout->addSpacing(20);
+    menuLayout->addSpacing(10);
+    addMenuOption(resetRunBtn, "Wipe your current progress, team, and inventory to start a fresh journey.");
+
+    menuLayout->addSpacing(10);
     addMenuOption(exitBtn, "Save your progress and return to the real world.");
 
     mainLayout->addLayout(menuLayout);
@@ -148,7 +161,7 @@ void MainHall::setupUI() {
     setWindowTitle("Pokémon Champions - Client");
 
     // Completely responsive: Sets a healthy minimum, allowing it to stretch cleanly.
-    setMinimumSize(550, 850);
+    setMinimumSize(550, 950);
 }
 
 void MainHall::applyTheme(const QString& themeName) {
@@ -234,10 +247,10 @@ void MainHall::applyTheme(const QString& themeName) {
 
     // Combobox styling
     themeComboBox->setStyleSheet(QString(R"(
-        QComboBox { 
-            background: %1; color: %2; border: 1px solid %3; 
-            border-radius: 4px; padding: 6px 12px; font-weight: bold; 
-        }
+        QComboBox {
+             background: %1; color: %2; border: 1px solid %3;
+             border-radius: 4px; padding: 6px 12px; font-weight: bold;
+         }
         QComboBox::drop-down { border: none; }
         QComboBox QAbstractItemView {
             background-color: %1; color: %2; selection-background-color: %4;
@@ -249,8 +262,8 @@ void MainHall::applyTheme(const QString& themeName) {
     QString baseBtnQSS = QString(R"(
         QPushButton {
             background-color: %1; color: %2; font-size: 14px; font-weight: 800;
-            padding: 10px; border: 2px solid %3; border-radius: 6px; 
-            letter-spacing: 1px; text-align: center;
+            padding: 10px; border: 2px solid %3; border-radius: 6px;
+             letter-spacing: 1px; text-align: center;
         }
         QPushButton:hover { background-color: %4; border: 2px solid %5; color: %6; }
         QPushButton:pressed { background-color: %5; color: #ffffff; }
@@ -262,26 +275,29 @@ void MainHall::applyTheme(const QString& themeName) {
     trainerBtn->setStyleSheet(baseBtnQSS);
     battlesBtn->setStyleSheet(baseBtnQSS);
 
-    // Tournament Remains Locked (Dashed border, muted text)
-    tournamentBtn->setStyleSheet(QString(R"(
-        QPushButton {
-            background-color: transparent; color: %1; font-size: 14px; font-weight: 800;
-            padding: 10px; border: 2px dashed %2; border-radius: 6px; 
-            letter-spacing: 1px; text-align: center;
-        }
-    )").arg(loreColor, btnBorder));
+    // Tournament Remains Locked (Dashed border, muted text) unless unlocked
+    if (!progManager.getTournamentUnlocked()) {
+        tournamentBtn->setStyleSheet(QString(R"(
+            QPushButton {
+                background-color: transparent; color: %1; font-size: 14px; font-weight: 800;
+                padding: 10px; border: 2px dashed %2; border-radius: 6px;
+                 letter-spacing: 1px; text-align: center;
+            }
+        )").arg(loreColor, btnBorder));
+    }
 
-    // Exit Button Warning Colors
+    // Exit & Reset Button Warning Colors
     QString exitBtnQSS = QString(R"(
         QPushButton {
             background-color: %1; color: %2; font-size: 14px; font-weight: 800;
-            padding: 10px; border: 2px solid %3; border-radius: 6px; 
-            letter-spacing: 1px; text-align: center;
+            padding: 10px; border: 2px solid %3; border-radius: 6px;
+             letter-spacing: 1px; text-align: center;
         }
         QPushButton:hover { background-color: %4; border: 2px solid %5; color: %6; }
     )").arg(btnBg, btnText, btnBorder, warnHoverBg, warnHoverBorder, warnHoverText);
 
     exitBtn->setStyleSheet(exitBtnQSS);
+    resetRunBtn->setStyleSheet(exitBtnQSS);
 
     // Guide Button Colors
     QString infoBtnQSS = QString(R"(
@@ -306,6 +322,7 @@ void MainHall::connectSignals() {
     connect(wildAreaBtn, &QPushButton::clicked, this, &MainHall::onWildAreaClicked);
     connect(pcManagerBtn, &QPushButton::clicked, this, &MainHall::onPCManagerClicked);
     connect(shopBtn, &QPushButton::clicked, this, &MainHall::onShopClicked);
+    connect(resetRunBtn, &QPushButton::clicked, this, &MainHall::onResetRunClicked);
     connect(exitBtn, &QPushButton::clicked, this, &MainHall::onExitClicked);
 
     connect(trainerBtn, &QPushButton::clicked, this, [this]() {
@@ -454,6 +471,27 @@ void MainHall::onShopClicked() {
     // Pass the ProgressionManager to the ShopDialog
     ShopDialog shop(controller, progManager, this);
     shop.exec();
+}
+
+void MainHall::onResetRunClicked() {
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::critical(this, "FACTORY RESET",
+        "Are you absolutely sure you want to start a New Run?\n\nThis will permanently delete ALL your Pokémon, items, money, and Gauntlet progress. This CANNOT be undone!",
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+        // 1. Wipe the Database
+        controller.factoryReset();
+
+        // 2. Wipe the Progression
+        progManager.resetRun();
+
+        // 3. Notify the player and refresh the Hub
+        QMessageBox::information(this, "Run Reset", "Your save has been wiped. Good luck on your new run!");
+
+        // Refresh UI so the Tournament button re-locks and updates visually
+        refreshProgressionUI();
+    }
 }
 
 void MainHall::onExitClicked() {

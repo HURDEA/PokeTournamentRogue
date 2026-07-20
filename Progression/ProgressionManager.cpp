@@ -65,3 +65,17 @@ std::vector<std::string> ProgressionManager::getUnlockedBiomes() const {
 std::vector<std::string> ProgressionManager::getUnlockedItems() const {
     return {};
 }
+
+void ProgressionManager::resetRun() {
+    QSettings settings("MyCompany", "PokemonBoxManager");
+
+    // Overwrite the saved progression values with starting defaults
+    settings.setValue("gauntletStage", 1);
+    settings.setValue("gauntletStreak", 0);
+    settings.setValue("tournamentUnlocked", false);
+
+    // Update the live memory variables (assuming these are your variable names)
+    currentGauntletStage = 1;
+    currentGauntletStreak = 0;
+    isTournamentUnlocked = false;
+}

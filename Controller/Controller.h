@@ -21,6 +21,7 @@ private:
 public:
     explicit Controller(std::unique_ptr<IRepository> repo);
 
+    void factoryReset();
     void catchPokemon(const Pokemon& p);
     void releasePokemon(int id);
     void updatePokemonItem(int id, const std::string& newItem);

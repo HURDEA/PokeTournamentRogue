@@ -87,6 +87,11 @@ double Simulator::evaluateActionBranches(
         BattleEngine sandbox(ctrl);
         std::vector<std::string> dummyLog;
 
+        int aiFaints = 0; for (const auto& p : simAiParty) if (p.getCurrentHp() <= 0) aiFaints++;
+        int pFaints = 0; for (const auto& p : simPlayerParty) if (p.getCurrentHp() <= 0) pFaints++;
+        sandbox.setFaintedCount(false, aiFaints);
+        sandbox.setFaintedCount(true, pFaints);
+
         bool aiSwitched = false;
         bool playerSwitched = false;
 
@@ -164,8 +169,8 @@ double Simulator::evaluateActionBranches(
             else if (aiPriority > pPriority) aiGoesFirst = true;
             else if (pPriority > aiPriority) aiGoesFirst = false;
             else {
-                int aiSpeed = sandbox.getEffectiveSpeed(simAiParty[simAiIdx], simPlayerParty[simPlayerIdx]);
-                int pSpeed = sandbox.getEffectiveSpeed(simPlayerParty[simPlayerIdx], simAiParty[simAiIdx]);
+                int aiSpeed = sandbox.getEffectiveSpeed(simAiParty[simAiIdx], simPlayerParty[simPlayerIdx], false);
+                int pSpeed = sandbox.getEffectiveSpeed(simPlayerParty[simPlayerIdx], simAiParty[simAiIdx], true);
                 aiGoesFirst = sandbox.getFieldState().trickRoom > 0 ? (aiSpeed < pSpeed) : (aiSpeed >= pSpeed);
             }
 
@@ -187,7 +192,6 @@ double Simulator::evaluateActionBranches(
 
         double score = runSimTurn(simAiParty, simAiIdx, simPlayerParty, simPlayerIdx, ctrl, depth - 1, "", nextAiMegaAvailable, nextPlayerMegaAvailable, alpha, beta);
 
-        // Minimal penalty for switching to prevent infinite loops, but allows switching for favorable match-ups.
         if (aiSwitched) score -= 5.0;
 
         if (score < worstCaseScore) {
@@ -306,8 +310,13 @@ double Simulator::evaluateBoardState(const std::vector<Pokemon>& aiParty, size_t
     if (aiActive.getCurrentHp() > 0 && pActive.getCurrentHp() > 0) {
         BattleEngine dummy(ctrl);
 
-        int aiSpeed = dummy.getEffectiveSpeed(aiActive, pActive);
-        int pSpeed = dummy.getEffectiveSpeed(pActive, aiActive);
+        int aiFaints = 0; for (const auto& p : aiParty) if (p.getCurrentHp() <= 0) aiFaints++;
+        int pFaints = 0; for (const auto& p : playerParty) if (p.getCurrentHp() <= 0) pFaints++;
+        dummy.setFaintedCount(false, aiFaints);
+        dummy.setFaintedCount(true, pFaints);
+
+        int aiSpeed = dummy.getEffectiveSpeed(aiActive, pActive, false);
+        int pSpeed = dummy.getEffectiveSpeed(pActive, aiActive, true);
 
         if (dummy.getFieldState().trickRoom > 0) {
             if (aiSpeed < pSpeed) matchupScore += 15.0;
@@ -318,20 +327,17 @@ double Simulator::evaluateBoardState(const std::vector<Pokemon>& aiParty, size_t
             else if (pSpeed > aiSpeed) matchupScore -= 15.0;
         }
 
-        // --- DRY RUN DAMAGE PROJECTION ---
-        // Calculates actual mathematical damage for both sides to determine true "Kill Pressure"
         double maxAiDamagePct = 0.0;
         for (const auto& mId : aiActive.getMoves()) {
             if (mId == "None" || mId.empty()) continue;
             MoveData md = ctrl.getMoveData(mId);
             if (md.basePower == 0 && md.ohko == false) continue;
 
-            // Pass copies to avoid corrupting the static state during evaluation
             Pokemon aiCopy = aiActive;
             Pokemon pCopy = pActive;
             std::vector<std::string> dummyLog;
 
-            int dmg = dummy.calculateDamageInternal(aiCopy, pCopy, md, false, dummyLog, true);
+            int dmg = dummy.calculateDamageInternal(aiCopy, pCopy, md, false, dummyLog, true, false);
             double pct = static_cast<double>(dmg) / std::max(1, pActive.getHp());
             if (pct > maxAiDamagePct) maxAiDamagePct = pct;
         }
@@ -346,16 +352,14 @@ double Simulator::evaluateBoardState(const std::vector<Pokemon>& aiParty, size_t
             Pokemon pCopy = pActive;
             std::vector<std::string> dummyLog;
 
-            int dmg = dummy.calculateDamageInternal(pCopy, aiCopy, md, false, dummyLog, true);
+            int dmg = dummy.calculateDamageInternal(pCopy, aiCopy, md, false, dummyLog, true, true);
             double pct = static_cast<double>(dmg) / std::max(1, aiActive.getHp());
             if (pct > maxPlayerDamagePct) maxPlayerDamagePct = pct;
         }
 
-        // Cap at 1.5 (150%) so extreme overkill doesn't mask other strategic factors
         maxAiDamagePct = std::min(1.5, maxAiDamagePct);
         maxPlayerDamagePct = std::min(1.5, maxPlayerDamagePct);
 
-        // Weigh the threat mathematically
         matchupScore += (maxAiDamagePct - maxPlayerDamagePct) * 50.0;
     }
     else if (aiActive.getCurrentHp() <= 0) {
