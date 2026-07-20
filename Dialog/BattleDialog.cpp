@@ -95,11 +95,31 @@ BattleDialog::BattleDialog(Controller& ctrl, const std::vector<Pokemon>& pParty,
     isFaintSwitch(false), isMidTurnSwitch(false), currentPhase(TurnPhase::Idle),
     turnCounter(1), isNewTurn(true) {
 
-    for (auto& p : playerParty) p.fullyHeal();
+    // --- NEW: PP Safety Net ---
+    // Injects PP values for older saves or dynamically generated opponent teams
+    for (auto& p : playerParty) {
+        for (const auto& m : p.getMoves()) {
+            if (!m.empty() && m != "None" && p.getMaxMovePP(m) <= 0) {
+                int pp = controller.getMoveData(m).pp;
+                p.setMaxMovePP(m, pp);
+                p.setMovePP(m, pp);
+            }
+        }
+        p.fullyHeal();
+    }
+
     for (auto& e : enemyParty) {
         if (e.getMoves().empty()) e.setMoves({ "tackle", "growl" });
+        for (const auto& m : e.getMoves()) {
+            if (!m.empty() && m != "None" && e.getMaxMovePP(m) <= 0) {
+                int pp = controller.getMoveData(m).pp;
+                e.setMaxMovePP(m, pp);
+                e.setMovePP(m, pp);
+            }
+        }
         e.fullyHeal();
     }
+    // --------------------------
 
     for (size_t i = 0; i < playerParty.size(); i++) {
         if (playerParty[i].getCurrentHp() > 0) { currentPlayerIndex = i; break; }
@@ -680,6 +700,7 @@ void BattleDialog::updateBattleDisplay() {
             MoveData md = controller.getMoveData(moveId);
 
             bool disabled = false;
+            if (p.getMovePP(moveId) <= 0) disabled = true;
             if (p.hasVolatile("torment") && p.lastMoveUsed == moveId) disabled = true;
             if (e.hasVolatile("imprison")) {
                 for (auto& em : e.getMoves()) if (em == moveId) disabled = true;
@@ -696,6 +717,15 @@ void BattleDialog::updateBattleDisplay() {
             btn->setIcon(QIcon("assets/Others/damage-category-icons/1x/" + QString::fromStdString(md.category) + "-white.png"));
             btn->setIconSize(QSize(24, 12));
             btn->setText("  " + QString::fromStdString(md.name).toUpper());
+
+            int currentPP = p.getMovePP(moveId);
+            int maxPP = p.getMaxMovePP(moveId);
+            if (forceValid && moveId == "struggle") {
+                btn->setText("  STRUGGLE\n  PP: --/--");
+            }
+            else {
+                btn->setText("  " + QString::fromStdString(md.name).toUpper() + "\n  PP: " + QString::number(currentPP) + "/" + QString::number(maxPP));
+            }
 
             if (disabled) {
                 btn->setStyleSheet(QString("QPushButton { background-color: %1; color: %2; border: 1px solid %3; opacity: 0.6; }").arg(btnBg, textMuted, btnBorder));
@@ -741,7 +771,13 @@ void BattleDialog::updateBattleDisplay() {
 
 void BattleDialog::onFightClicked() {
     Pokemon& p = playerParty[currentPlayerIndex];
-    if (p.getLockedTurns() > 0) {
+
+    // --- NEW: Force Action if Charging or Locked ---
+    if (!p.getChargingMove().empty()) {
+        currentLog.push_back(p.getNickname() + " is preparing its attack!");
+        beginTurn(p.getChargingMove());
+    }
+    else if (p.getLockedTurns() > 0) {
         currentLog.push_back(p.getNickname() + " is locked in!");
         beginTurn(p.getLockedMove());
     }
@@ -752,6 +788,13 @@ void BattleDialog::onFightClicked() {
 }
 
 void BattleDialog::onSwitchClicked() {
+    Pokemon& p = playerParty[currentPlayerIndex];
+    if (!p.getChargingMove().empty() || p.getLockedTurns() > 0) {
+        currentLog.push_back(p.getNickname() + " is locked in and cannot switch!");
+        flushLog(false);
+        return;
+    }
+
     partyListWidget->clear();
     for (size_t i = 0; i < playerParty.size(); i++) {
         const Pokemon& poke = playerParty[i];
@@ -797,6 +840,13 @@ void BattleDialog::onConfirmSwitchClicked() {
 }
 
 void BattleDialog::onMegaClicked() {
+    Pokemon& p = playerParty[currentPlayerIndex];
+    if (!p.getChargingMove().empty() || p.getLockedTurns() > 0) {
+        currentLog.push_back(p.getNickname() + " is locked in and cannot Mega Evolve now!");
+        flushLog(false);
+        return;
+    }
+
     if (isPlayerMegaEvolved) { currentLog.push_back("You have already Mega Evolved a Pokémon!"); flushLog(false); return; }
     std::string item = playerParty[currentPlayerIndex].getHeldItem();
     if (QString::fromStdString(item).contains("ITE", Qt::CaseInsensitive) || item == "REDORB" || item == "BLUEORB") {
@@ -814,6 +864,13 @@ void BattleDialog::onMegaClicked() {
 }
 
 void BattleDialog::onRunClicked() {
+    Pokemon& p = playerParty[currentPlayerIndex];
+    if (!p.getChargingMove().empty() || p.getLockedTurns() > 0) {
+        currentLog.push_back(p.getNickname() + " is locked in and cannot flee!");
+        flushLog(false);
+        return;
+    }
+
     currentLog.push_back("Got away safely!");
     flushLog(false);
     QTimer::singleShot(1000, this, &QDialog::reject);

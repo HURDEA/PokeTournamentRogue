@@ -19,19 +19,25 @@ std::vector<std::string> Simulator::generateValidActions(const Pokemon& activePk
         return actions;
     }
 
+    // --- NEW: Forced Locking for AI ---
+    if (!activePkmn.getChargingMove().empty()) {
+        actions.push_back("move:" + activePkmn.getChargingMove());
+        return actions;
+    }
+
     if (activePkmn.getLockedTurns() > 0) {
         actions.push_back("move:" + activePkmn.getLockedMove());
         return actions;
     }
+    // ----------------------------------
 
     auto moves = activePkmn.getMoves();
     for (const auto& mId : moves) {
         if (!mId.empty() && mId != "None") {
+            if (activePkmn.getMovePP(mId) <= 0) continue;
+
             MoveData md = ctrl.getMoveData(mId);
-            // STALL PREVENTION: Forbid the AI from attempting consecutive Protects/Endures.
-            if (md.isProtectMove && activePkmn.getProtectCounter() > 0) {
-                continue;
-            }
+            if (md.isProtectMove && activePkmn.getProtectCounter() > 0) continue;
             actions.push_back("move:" + mId);
         }
     }
@@ -45,6 +51,7 @@ std::vector<std::string> Simulator::generateValidActions(const Pokemon& activePk
         if (normItem.find("ITE") != std::string::npos || normItem == "REDORB" || normItem == "BLUEORB") {
             for (const auto& mId : moves) {
                 if (!mId.empty() && mId != "None") {
+                    if (activePkmn.getMovePP(mId) <= 0) continue;
                     MoveData md = ctrl.getMoveData(mId);
                     if (md.isProtectMove && activePkmn.getProtectCounter() > 0) continue;
                     actions.push_back("mega:" + mId);

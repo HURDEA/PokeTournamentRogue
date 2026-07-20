@@ -148,6 +148,7 @@ void CSVRepository::loadShowdownData() {
             md.type = mObj["type"].toString().toStdString();
             md.basePower = mObj.contains("basePower") ? mObj["basePower"].toInt() : 0;
             md.priority = mObj.contains("priority") ? mObj["priority"].toInt() : 0;
+            md.pp = mObj.contains("pp") ? mObj["pp"].toInt() : 10; // NEW: Parse PP from JSON
 
             if (mObj["accuracy"].isBool()) md.accuracy = 101;
             else md.accuracy = mObj["accuracy"].toInt();
@@ -368,8 +369,16 @@ void CSVRepository::loadSaveFile() {
             std::string ability = "None";
             int ev[6] = { 0,0,0,0,0,0 };
             std::vector<std::string> savedMoves;
+            std::vector<int> savedPPs; // NEW
 
-            if (fields.size() >= 27) {
+            if (fields.size() >= 31) { // NEW: Safe load for 31 fields (Current PP System)
+                nature = fields[15].trimmed().toStdString();
+                ability = fields[16].trimmed().toStdString();
+                for (int i = 0; i < 6; i++) ev[i] = fields[17 + i].toInt();
+                for (int i = 23; i < 27; i++) if (fields[i].trimmed() != "None" && !fields[i].isEmpty()) savedMoves.push_back(fields[i].trimmed().toStdString());
+                for (int i = 27; i < 31; i++) savedPPs.push_back(fields[i].toInt());
+            }
+            else if (fields.size() >= 27) { // Old system
                 nature = fields[15].trimmed().toStdString();
                 ability = fields[16].trimmed().toStdString();
                 for (int i = 0; i < 6; i++) ev[i] = fields[17 + i].toInt();
@@ -393,6 +402,19 @@ void CSVRepository::loadSaveFile() {
             }
 
             Pokemon p(id, speciesId, name, fields[3].trimmed().toStdString(), fields[4].trimmed().toStdString(), fields[5].toInt(), fields[6].toInt(), fields[7].toInt(), fields[8].toInt(), fields[9].toInt(), fields[10].toInt(), fields[11].toInt(), fields[12].trimmed().toStdString(), fields[13].toInt(), fields[14].trimmed().toStdString(), savedMoves, nature, ability, ev[0], ev[1], ev[2], ev[3], ev[4], ev[5], weight, happiness);
+
+            // NEW: Integrate the loaded or default PPs
+            for (size_t i = 0; i < savedMoves.size(); i++) {
+                MoveData md = getMoveData(savedMoves[i]);
+                p.setMaxMovePP(savedMoves[i], md.pp);
+                if (!savedPPs.empty() && i < savedPPs.size()) {
+                    p.setMovePP(savedMoves[i], savedPPs[i]);
+                }
+                else {
+                    p.setMovePP(savedMoves[i], md.pp);
+                }
+            }
+
             caughtParty.push_back(p);
         }
         catch (...) {}
@@ -403,7 +425,8 @@ void CSVRepository::saveToFile() const {
     QFile file("party_save.csv");
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
     QTextStream out(&file);
-    out << "id,speciesId,name,type1,type2,basehp,baseatk,basedef,basespa,basespd,basespe,level,heldItem,boxNumber,nickname,nature,ability,evhp,evatk,evdef,evspa,evspd,evspe,m1,m2,m3,m4\n";
+    // NEW: Expanded headers
+    out << "id,speciesId,name,type1,type2,basehp,baseatk,basedef,basespa,basespd,basespe,level,heldItem,boxNumber,nickname,nature,ability,evhp,evatk,evdef,evspa,evspd,evspe,m1,m2,m3,m4,pp1,pp2,pp3,pp4\n";
     for (const auto& p : caughtParty) {
         QString cleanNick = QString::fromStdString(p.getNickname()).replace(",", " ");
         out << p.getId() << "," << p.getSpeciesId() << "," << QString::fromStdString(p.getName()).replace(",", "") << ","
@@ -418,7 +441,13 @@ void CSVRepository::saveToFile() const {
         out << (moves.size() > 0 ? QString::fromStdString(moves[0]) : "None") << ",";
         out << (moves.size() > 1 ? QString::fromStdString(moves[1]) : "None") << ",";
         out << (moves.size() > 2 ? QString::fromStdString(moves[2]) : "None") << ",";
-        out << (moves.size() > 3 ? QString::fromStdString(moves[3]) : "None") << "\n";
+        out << (moves.size() > 3 ? QString::fromStdString(moves[3]) : "None") << ",";
+
+        // NEW: Save current PP
+        out << p.getMovePP(moves.size() > 0 ? moves[0] : "") << ",";
+        out << p.getMovePP(moves.size() > 1 ? moves[1] : "") << ",";
+        out << p.getMovePP(moves.size() > 2 ? moves[2] : "") << ",";
+        out << p.getMovePP(moves.size() > 3 ? moves[3] : "") << "\n";
     }
 }
 
@@ -540,6 +569,13 @@ Pokemon CSVRepository::getRandomEncounter(const std::vector<std::string>& allowe
     if (speciesAbilitiesDB.find(encounter.getName()) != speciesAbilitiesDB.end()) {
         auto abs = speciesAbilitiesDB[encounter.getName()];
         if (!abs.empty()) encounter.setAbility(abs[rand() % abs.size()]);
+    }
+
+    // NEW: Initialize max PP for random encounters
+    for (const auto& m : selectedMoves) {
+        MoveData md = getMoveData(m);
+        encounter.setMaxMovePP(m, md.pp);
+        encounter.setMovePP(m, md.pp);
     }
 
     return encounter;

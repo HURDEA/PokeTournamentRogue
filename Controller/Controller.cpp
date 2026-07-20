@@ -77,6 +77,20 @@ void Controller::updatePokemonMoves(int partyId, const std::vector<std::string>&
     Pokemon oldP = repository->getById(partyId);
     Pokemon newP = oldP;
     newP.setMoves(newMoves);
+
+    // NEW: Retain old PP if keeping the move, otherwise initialize Max PP
+    for (const auto& m : newMoves) {
+        if (oldP.getMaxMovePP(m) > 0) {
+            newP.setMaxMovePP(m, oldP.getMaxMovePP(m));
+            newP.setMovePP(m, oldP.getMovePP(m));
+        }
+        else {
+            MoveData md = repository->getMoveData(m);
+            newP.setMaxMovePP(m, md.pp);
+            newP.setMovePP(m, md.pp);
+        }
+    }
+
     auto cmd = std::make_unique<ChangeMoveCommand>(*repository, oldP, newP);
     executeCommand(std::move(cmd));
 }

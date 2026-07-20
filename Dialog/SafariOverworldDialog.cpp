@@ -9,18 +9,17 @@
 #include <QMouseEvent>
 #include <QSettings>
 #include <QSizePolicy>
+#include <QFile>
 #include <cstdlib>
-#include <ctime> // NEW: Required for time()
+#include <ctime>
 
 SafariOverworldDialog::SafariOverworldDialog(Controller& ctrl, const QString& avatarPath, const QString& zoneName, const std::vector<std::string>& allowedTypes, QWidget* parent)
     : QDialog(parent), controller(ctrl), playerAvatarPath(avatarPath), currentZoneName(zoneName), zoneTypes(allowedTypes) {
 
-    // NEW: Seed the random generator with the current time
     srand(static_cast<unsigned int>(time(nullptr)));
 
     setupUI();
 
-    // Load the globally selected theme
     QSettings settings("MyCompany", "PokemonBoxManager");
     QString savedTheme = settings.value("mainHallTheme", "Pro Dark").toString();
     applyTheme(savedTheme);
@@ -42,43 +41,31 @@ void SafariOverworldDialog::setupUI() {
     statusLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(statusLabel);
 
-    QGridLayout* gridLayout = new QGridLayout();
+    // --- NEW: Cohesive Scene Frame instead of individual tiles ---
+    QFrame* sceneFrame = new QFrame(this);
+    sceneFrame->setObjectName("sceneFrame");
+    sceneFrame->setFixedSize(400, 400);
+
+    QGridLayout* gridLayout = new QGridLayout(sceneFrame);
     gridLayout->setSpacing(0);
-    gridLayout->setContentsMargins(10, 10, 10, 10);
-
-    // DYNAMIC BIOME COLORING
-    QColor zoneColor = Qt::darkGreen; // Default Forest
-    if (currentZoneName.contains("Power")) zoneColor = QColor(218, 165, 32);
-    else if (currentZoneName.contains("Sewers")) zoneColor = QColor(75, 0, 130);
-    else if (currentZoneName.contains("Volcano")) zoneColor = QColor(178, 34, 34);
-    else if (currentZoneName.contains("Tundra")) zoneColor = QColor(175, 238, 238);
-    else if (currentZoneName.contains("Temple")) zoneColor = QColor(210, 180, 140);
-    else if (currentZoneName.contains("Waterfall")) zoneColor = QColor(65, 105, 225);
-
-    QPixmap tileset("Tilesets/route-field.png");
-    QPixmap grassTile;
-    if (!tileset.isNull()) {
-        grassTile = tileset.copy(0, 672, 32, 32);
-    }
-    else {
-        grassTile = QPixmap(32, 32); grassTile.fill(zoneColor); // Apply fallback biome color
-    }
+    gridLayout->setContentsMargins(0, 0, 0, 0);
 
     grassGrid.resize(10, std::vector<QLabel*>(10));
     for (int r = 0; r < 10; ++r) {
         for (int c = 0; c < 10; ++c) {
-            QLabel* grassLabel = new QLabel(this);
-            grassLabel->setPixmap(grassTile);
-            grassLabel->setScaledContents(true);
-            grassLabel->setFixedSize(40, 40);
-            grassLabel->installEventFilter(this);
-            grassLabel->setCursor(Qt::PointingHandCursor);
+            QLabel* cellLabel = new QLabel(sceneFrame);
+            cellLabel->setFixedSize(40, 40);
 
-            grassGrid[r][c] = grassLabel;
-            gridLayout->addWidget(grassLabel, r, c);
+            // Cells are now invisible, acting only as clickable coordinate zones
+            cellLabel->setStyleSheet("background: transparent; border: none;");
+            cellLabel->installEventFilter(this);
+            cellLabel->setCursor(Qt::PointingHandCursor);
+
+            grassGrid[r][c] = cellLabel;
+            gridLayout->addWidget(cellLabel, r, c);
         }
     }
-    mainLayout->addLayout(gridLayout);
+    mainLayout->addWidget(sceneFrame, 0, Qt::AlignHCenter);
 
     QHBoxLayout* bottomLayout = new QHBoxLayout();
     bottomLayout->setSpacing(15);
@@ -97,8 +84,6 @@ void SafariOverworldDialog::setupUI() {
     mainLayout->addLayout(bottomLayout);
 
     setWindowTitle("Wild Area Exploration - Pokémon Champions");
-
-    // Responsive scaling
     setMinimumSize(480, 620);
     resize(480, 650);
 }
@@ -120,54 +105,55 @@ void SafariOverworldDialog::applyTheme(const QString& themeName) {
         btnHoverBg = "#b3e5fc"; btnHoverBorder = "#0288d1"; btnHoverText = "#01579b";
         dangerBorder = "#d32f2f"; dangerHoverBg = "#ffcdd2"; dangerHoverText = "#c62828";
     }
-    else if (themeName == "Electric Spark") {
-        bg = "#fffde7"; ctrlBg = "#ffffff"; textBase = "#212121"; textMuted = "#616161"; accentColor = "#f57f17";
-        btnBg = "#ffffff"; btnText = "#424242"; btnBorder = "#fff176";
-        btnHoverBg = "#fff59d"; btnHoverBorder = "#fbc02d"; btnHoverText = "#212121";
-        dangerBorder = "#d32f2f"; dangerHoverBg = "#ffcdd2"; dangerHoverText = "#c62828";
-    }
-    else if (themeName == "Leafy Forest") {
-        bg = "#f1f8e9"; ctrlBg = "#ffffff"; textBase = "#1b5e20"; textMuted = "#33691e"; accentColor = "#558b2f";
-        btnBg = "#ffffff"; btnText = "#2e7d32"; btnBorder = "#c5e1a5";
-        btnHoverBg = "#dcedc8"; btnHoverBorder = "#7cb342"; btnHoverText = "#1b5e20";
-        dangerBorder = "#d32f2f"; dangerHoverBg = "#ffcdd2"; dangerHoverText = "#c62828";
-    }
     else if (themeName == "Ember Volcano") {
         bg = "#1a0b0b"; ctrlBg = "#2d1313"; textBase = "#ff4757"; textMuted = "#a36e6e"; accentColor = "#ffa502";
         btnBg = "#2d1313"; btnText = "#ff6b81"; btnBorder = "#ff4757";
         btnHoverBg = "#ff4757"; btnHoverBorder = "#ff4757"; btnHoverText = "#ffffff";
         dangerBorder = "#eccc68"; dangerHoverBg = "#592b2b"; dangerHoverText = "#eccc68";
     }
-    else if (themeName == "Psychic Mind") {
-        bg = "#190033"; ctrlBg = "#2d1b4e"; textBase = "#e056fd"; textMuted = "#9b7eb5"; accentColor = "#be2edd";
-        btnBg = "#2d1b4e"; btnText = "#dcbdf2"; btnBorder = "#8c7ae6";
-        btnHoverBg = "#be2edd"; btnHoverBorder = "#e056fd"; btnHoverText = "#ffffff";
-        dangerBorder = "#ff4757"; dangerHoverBg = "#4a1c40"; dangerHoverText = "#ff6b81";
-    }
-    else if (themeName == "Dragon's Den") {
-        bg = "#0b0a1a"; ctrlBg = "#15142b"; textBase = "#f5cd79"; textMuted = "#706f8a"; accentColor = "#e66767";
-        btnBg = "#15142b"; btnText = "#f5cd79"; btnBorder = "#546de5";
-        btnHoverBg = "#546de5"; btnHoverBorder = "#778beb"; btnHoverText = "#ffffff";
-        dangerBorder = "#e66767"; dangerHoverBg = "#2b1414"; dangerHoverText = "#ff7979";
-    }
-    else if (themeName == "Fairy Tale") {
-        bg = "#fff0f5"; ctrlBg = "#ffffff"; textBase = "#e84393"; textMuted = "#b78e9b"; accentColor = "#fd79a8";
-        btnBg = "#ffffff"; btnText = "#d63031"; btnBorder = "#fab1a0";
-        btnHoverBg = "#fd79a8"; btnHoverBorder = "#e84393"; btnHoverText = "#ffffff";
-        dangerBorder = "#d63031"; dangerHoverBg = "#ffcdd2"; dangerHoverText = "#c0392b";
-    }
-    else if (themeName == "Champion's Gold") {
-        bg = "#fdfbfa"; ctrlBg = "#ffffff"; textBase = "#2d3436"; textMuted = "#7f7b71"; accentColor = "#d4af37";
-        btnBg = "#ffffff"; btnText = "#2d3436"; btnBorder = "#d4af37";
-        btnHoverBg = "#fff6d6"; btnHoverBorder = "#f1c40f"; btnHoverText = "#2d3436";
-        dangerBorder = "#e74c3c"; dangerHoverBg = "#f2d7d5"; dangerHoverText = "#c0392b";
-    }
-    else { // Poké Center
+    else {
         bg = "#f4f6f8"; ctrlBg = "#ffffff"; textBase = "#2c3e50"; textMuted = "#7f8c8d"; accentColor = "#3498db";
         btnBg = "#ffffff"; btnText = "#2c3e50"; btnBorder = "#e0e0e0";
         btnHoverBg = "#ecf0f1"; btnHoverBorder = "#3498db"; btnHoverText = "#2c3e50";
         dangerBorder = "#c0392b"; dangerHoverBg = "#f2d7d5"; dangerHoverText = "#922b21";
     }
+
+    // --- NEW: Dynamic Biome Backgrounds ---
+    QString bgName = "forest";
+    QString gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #1e3c27, stop:1 #2d5a27)"; // Default Forest
+
+    if (currentZoneName.contains("Power")) {
+        bgName = "power"; gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #2c3e50, stop:1 #f39c12)";
+    }
+    else if (currentZoneName.contains("Sewers")) {
+        bgName = "sewers"; gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #1a252f, stop:1 #16a085)";
+    }
+    else if (currentZoneName.contains("Volcano")) {
+        bgName = "volcano"; gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #7f8c8d, stop:1 #c0392b)";
+    }
+    else if (currentZoneName.contains("Tundra")) {
+        bgName = "tundra"; gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #ecf0f1, stop:1 #74b9ff)";
+    }
+    else if (currentZoneName.contains("Temple")) {
+        bgName = "temple"; gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #d35400, stop:1 #f39c12)";
+    }
+    else if (currentZoneName.contains("Waterfall")) {
+        bgName = "waterfall"; gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #0984e3, stop:1 #00cec9)";
+    }
+    else if (currentZoneName.contains("Mt. Moon")) {
+        bgName = "mtmoon"; gradient = "qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #2d3436, stop:1 #636e72)";
+    }
+
+    QString bgPath = QString("assets/WildAreas/%1.png").arg(bgName);
+
+    QString sceneStyle = QString("QFrame#sceneFrame { border: 4px solid %1; border-radius: 8px; ").arg(accentColor);
+    if (QFile::exists(bgPath)) {
+        sceneStyle += QString("background-image: url(%1); background-position: center; }").arg(bgPath);
+    }
+    else {
+        sceneStyle += QString("background: %1; }").arg(gradient);
+    }
+    // ----------------------------------------
 
     QString qss = QString(R"(
         QDialog { background-color: %1; font-family: 'Segoe UI', Helvetica, sans-serif; }
@@ -180,7 +166,7 @@ void SafariOverworldDialog::applyTheme(const QString& themeName) {
         QPushButton#dangerBtn:hover { background-color: %13; border: 1px solid %12; color: %14; }
     )").arg(bg, ctrlBg, textBase, textMuted, accentColor, btnBg, btnBorder, btnText, btnHoverBg, btnHoverBorder, btnHoverText, dangerBorder, dangerHoverBg, dangerHoverText);
 
-    this->setStyleSheet(qss);
+    this->setStyleSheet(qss + sceneStyle);
 }
 
 void SafariOverworldDialog::connectSignals() {}
@@ -194,37 +180,23 @@ void SafariOverworldDialog::onExitZone() {
 }
 
 void SafariOverworldDialog::onRustle() {
-    // Determine static color based on zone again for resetting
-    QColor zoneColor = Qt::darkGreen;
-    if (currentZoneName.contains("Power")) zoneColor = QColor(218, 165, 32);
-    else if (currentZoneName.contains("Sewers")) zoneColor = QColor(75, 0, 130);
-    else if (currentZoneName.contains("Volcano")) zoneColor = QColor(178, 34, 34);
-    else if (currentZoneName.contains("Tundra")) zoneColor = QColor(175, 238, 238);
-    else if (currentZoneName.contains("Temple")) zoneColor = QColor(210, 180, 140);
-    else if (currentZoneName.contains("Waterfall")) zoneColor = QColor(65, 105, 225);
-
-    QPixmap tileset("Tilesets/route-field.png");
-    QPixmap staticGrass;
-    if (!tileset.isNull()) staticGrass = tileset.copy(0, 672, 32, 32);
-    else { staticGrass = QPixmap(32, 32); staticGrass.fill(zoneColor); }
-
-    if (currentRustleRow != -1 && !staticGrass.isNull()) {
-        grassGrid[currentRustleRow][currentRustleCol]->setPixmap(staticGrass);
+    // Clear previous rustle
+    if (currentRustleRow != -1 && currentRustleCol != -1) {
+        grassGrid[currentRustleRow][currentRustleCol]->setPixmap(QPixmap());
+        grassGrid[currentRustleRow][currentRustleCol]->setStyleSheet("background: transparent; border: none;");
     }
 
     currentRustleRow = rand() % 10;
     currentRustleCol = rand() % 10;
 
-    QPixmap rustleGrass;
-    if (!tileset.isNull()) {
-        rustleGrass = tileset.copy(0, 640, 32, 32);
+    // Show a distinct visual marker for the rustling spot over the background
+    QPixmap rustleIcon("assets/Others/rustle.png");
+    if (!rustleIcon.isNull()) {
+        grassGrid[currentRustleRow][currentRustleCol]->setPixmap(rustleIcon.scaled(40, 40, Qt::KeepAspectRatio));
     }
     else {
-        rustleGrass = QPixmap(32, 32); rustleGrass.fill(Qt::yellow);
-    }
-
-    if (!rustleGrass.isNull()) {
-        grassGrid[currentRustleRow][currentRustleCol]->setPixmap(rustleGrass);
+        // Fallback: A pulsing glowing yellow circle
+        grassGrid[currentRustleRow][currentRustleCol]->setStyleSheet("background-color: rgba(241, 196, 15, 0.7); border: 2px solid #f39c12; border-radius: 20px;");
     }
 
     statusLabel->setText("Something moved! Click it!");
@@ -240,6 +212,10 @@ bool SafariOverworldDialog::eventFilter(QObject* obj, QEvent* event) {
                 statusLabel->setText("Wild Pokémon appeared!");
 
                 rustleTimer->stop();
+
+                // Clear the marker before battle
+                grassGrid[currentRustleRow][currentRustleCol]->setPixmap(QPixmap());
+                grassGrid[currentRustleRow][currentRustleCol]->setStyleSheet("background: transparent; border: none;");
                 currentRustleRow = -1;
 
                 SafariZoneDialog battleDialog(controller, playerAvatarPath, zoneTypes, this);

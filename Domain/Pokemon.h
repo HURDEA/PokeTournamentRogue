@@ -18,6 +18,8 @@ struct MoveData {
     int maxHits = 1;
     bool isCharge = false;
 
+    int pp = 10; // NEW: Base PP from the JSON
+
     int effectChance = 0;
     std::string status = "";
     std::map<std::string, int> boosts;
@@ -47,6 +49,8 @@ private:
     std::string nickname;
     std::string type1;
     std::string type2;
+    std::map<std::string, int> movePPs;
+    std::map<std::string, int> maxMovePPs;
 
     int baseHp, baseAttack, baseDefense, baseSpAttack, baseSpDefense, baseSpeed;
     int hp, attack, defense, spAttack, spDefense, speed;
@@ -113,6 +117,26 @@ private:
     }
 
 public:
+    // --- PP SYSTEM METHODS ---
+    int getMovePP(const std::string& moveId) const {
+        auto it = movePPs.find(moveId);
+        return it != movePPs.end() ? it->second : 0;
+    }
+    int getMaxMovePP(const std::string& moveId) const {
+        auto it = maxMovePPs.find(moveId);
+        return it != maxMovePPs.end() ? it->second : 0;
+    }
+    void setMovePP(const std::string& moveId, int pp) {
+        movePPs[moveId] = std::max(0, pp);
+    }
+    void setMaxMovePP(const std::string& moveId, int maxPp) {
+        maxMovePPs[moveId] = maxPp;
+    }
+    void restoreAllPP() {
+        for (const auto& pair : maxMovePPs) {
+            movePPs[pair.first] = pair.second;
+        }
+    }
     bool isSwitchingOut = false;
     bool isForcedRandomSwitch = false;
     bool statLoweredThisTurn = false;
@@ -212,6 +236,7 @@ public:
 
         resetStatStages();
         calculateStats();
+        restoreAllPP(); // NEW: Refresh PP on heal
     }
 
     void resetStatStages() {
@@ -304,6 +329,13 @@ public:
         baseSpeed = target.getBaseSpeed();
         ability = target.getAbility();
         moves = target.getMoves();
+
+        // NEW: Transform canonically limits copied moves to 5 PP
+        for (const auto& m : moves) {
+            setMaxMovePP(m, target.getMaxMovePP(m));
+            setMovePP(m, 5);
+        }
+
         calculateStats();
     }
 

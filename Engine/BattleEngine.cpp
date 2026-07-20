@@ -127,6 +127,14 @@ void BattleEngine::onSwitchIn(Pokemon& p, bool isPlayer, std::vector<std::string
     p.lastDamageTaken = 0;
     p.lastDamageCategory = "";
 
+    // --- NEW: Hard reset multi-turn states so revived/switched Pokémon don't lock the UI ---
+    p.setChargingMove("");
+    p.removeVolatile("semi_invuln_dig");
+    p.removeVolatile("semi_invuln_fly");
+    p.removeVolatile("semi_invuln_dive");
+    p.removeVolatile("semi_invuln_phantom");
+    // ----------------------------------------------------------------------------------------
+
     p.addVolatile("first_turn", 1);
 
     std::string abil = p.getAbility();
@@ -298,7 +306,7 @@ void BattleEngine::onSwitchIn(Pokemon& p, bool isPlayer, std::vector<std::string
     bool extremeWeather = (field.weather == "DesolateLand" || field.weather == "PrimordialSea" || field.weather == "DeltaStream");
     if (abil == "Desolate Land") { field.weather = "DesolateLand"; field.weatherTurns = -1; log.push_back("The sunlight turned extremely harsh!"); }
     else if (abil == "Primordial Sea") { field.weather = "PrimordialSea"; field.weatherTurns = -1; log.push_back("A heavy rain began to fall!"); }
-    else if (abil == "Delta Stream") { field.weather = "DeltaStream"; field.weatherTurns = -1; log.push_back("A mysterious air current is protecting Flying-type Pokémon!"); }
+    else if (abil == "Delta Stream") { field.weather = "DeltaStream"; field.weatherTurns = -1; log.push_back("A mysterious air current is protecting Flying-type Pokemon!"); }
     else if (!extremeWeather) {
         if (abil == "Drizzle" && field.weather != "Rain") { field.weather = "Rain"; field.weatherTurns = (item == "DAMPROCK") ? 8 : 5; log.push_back("It started to rain!"); }
         else if (abil == "Drought" && field.weather != "Sun") { field.weather = "Sun"; field.weatherTurns = (item == "HEATROCK") ? 8 : 5; log.push_back("The sunlight turned harsh!"); }
@@ -337,6 +345,12 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
 
     std::string currentType = move.type;
     int currentPower = move.basePower;
+
+    // --- NEW: Double damage multipliers for Semi-Invulnerable states ---
+    if (defender.hasVolatile("semi_invuln_dig") && (move.name == "Earthquake" || move.name == "Magnitude")) currentPower *= 2;
+    if (defender.hasVolatile("semi_invuln_fly") && (move.name == "Gust" || move.name == "Twister")) currentPower *= 2;
+    if (defender.hasVolatile("semi_invuln_dive") && (move.name == "Surf" || move.name == "Whirlpool")) currentPower *= 2;
+    // -------------------------------------------------------------------
 
     std::string aAbil = attacker.getAbility();
     std::string dAbil = defender.getAbility();
@@ -528,14 +542,12 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
         d *= 1.5; // Eviolite boosts both Def and SpDef
     }
 
-    // --- SCREEN / SHIELD MITIGATION FIX ---
     const SideState& defSide = isPlayerAttacker ? enemySide : playerSide;
 
     if (!isCrit && aAbil != "Infiltrator") {
-        // Brick Break and Psychic Fangs ignore screens completely
         if (move.name != "Brick Break" && move.name != "Psychic Fangs" && move.name != "Raging Bull") {
             if (move.category == "Physical" && (defSide.reflect > 0 || defSide.auroraVeil > 0)) {
-                d *= 2.0; // In Singles, screens double effective defense
+                d *= 2.0;
             }
             if (move.category == "Special" && (defSide.lightScreen > 0 || defSide.auroraVeil > 0)) {
                 d *= 2.0;
@@ -908,6 +920,47 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
     MoveData move = controller.getMoveData(moveId);
 
+    // --- NEW: Interruption Logic (Status/Flinch removes mid-air/underground states) ---
+    auto interruptCharge = [&]() {
+        if (!attacker.getChargingMove().empty()) {
+            attacker.setChargingMove("");
+            attacker.removeVolatile("semi_invuln_dig");
+            attacker.removeVolatile("semi_invuln_fly");
+            attacker.removeVolatile("semi_invuln_dive");
+            attacker.removeVolatile("semi_invuln_phantom");
+            log.push_back(attacker.getNickname() + "'s attack was interrupted!");
+        }
+        };
+    // ----------------------------------------------------------------------------------
+
+    auto checkLeppaBerry = [&](Pokemon& pkmn) {
+        if (normalizeString(pkmn.getHeldItem()) == "LEPPABERRY") {
+            for (const std::string& m : pkmn.getMoves()) {
+                if (pkmn.getMovePP(m) == 0 && pkmn.getMaxMovePP(m) > 0) {
+                    pkmn.setMovePP(m, 10);
+                    pkmn.setHeldItem("None");
+                    log.push_back(pkmn.getNickname() + " restored PP using its Leppa Berry!");
+                    if (pkmn.getAbility() == "Unburden") pkmn.addVolatile("unburden", 1);
+                    break;
+                }
+            }
+        }
+        };
+
+    if (moveId != "Struggle" && moveId != "struggle") {
+        bool isExecutingCharge = (attacker.getChargingMove() == moveId);
+        bool isLockedContinuation = (attacker.getLockedTurns() > 0 && attacker.getLockedMove() == moveId);
+
+        if (!isExecutingCharge && !isLockedContinuation) {
+            int ppDeduction = 1;
+            if (defender.getAbility() == "Pressure" && defender.getCurrentHp() > 0) {
+                ppDeduction = 2;
+            }
+            attacker.setMovePP(moveId, attacker.getMovePP(moveId) - ppDeduction);
+            checkLeppaBerry(attacker);
+        }
+    }
+
     std::string aAbil = attacker.getAbility();
     std::string dAbil = defender.getAbility();
     std::string aItem = (field.magicRoom > 0) ? "NONE" : normalizeString(attacker.getHeldItem());
@@ -957,12 +1010,14 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
     if (move.category == "Status" && dAbil == "Magic Bounce" && move.flagsProtect && move.overrideOffensivePokemon != "target") {
         log.push_back(defender.getNickname() + " bounced the " + move.name + " back with Magic Bounce!");
         attacker.addVolatile("moved_this_turn", 1);
+        interruptCharge();
         return;
     }
 
     if (aAbil == "Prankster" && move.category == "Status" && (defender.getType1() == "Dark" || defender.getType2() == "Dark")) {
         log.push_back("It doesn't affect " + defender.getNickname() + "...");
         attacker.addVolatile("moved_this_turn", 1);
+        interruptCharge();
         return;
     }
 
@@ -1035,15 +1090,18 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         if (dAbil == "Queenly Majesty" || dAbil == "Dazzling" || dAbil == "Armor Tail") {
             log.push_back(defender.getNickname() + " cannot be hit by priority moves due to " + dAbil + "!");
             attacker.addVolatile("moved_this_turn", 1);
+            interruptCharge();
             return;
         }
     }
 
+    // --- APPLY INTERRUPTION TO ALL STATUS PREVENTIONS ---
     if (attacker.hasVolatile("flinch")) {
         log.push_back(attacker.getNickname() + " flinched and couldn't move!");
         attacker.removeVolatile("flinch");
         attacker.resetProtectCounter();
         attacker.addVolatile("moved_this_turn", 1);
+        interruptCharge();
         return;
     }
 
@@ -1051,6 +1109,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         if (move.name == "Fly" || move.name == "Bounce" || move.name == "Splash" || move.name == "Jump Kick" || move.name == "High Jump Kick") {
             log.push_back(attacker.getNickname() + " can't use " + move.name + " because of gravity!");
             attacker.addVolatile("moved_this_turn", 1);
+            interruptCharge();
             return;
         }
     }
@@ -1066,6 +1125,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
                 log.push_back(attacker.getNickname() + " is fast asleep.");
                 attacker.resetProtectCounter();
                 attacker.addVolatile("moved_this_turn", 1);
+                interruptCharge();
                 return;
             }
         }
@@ -1079,6 +1139,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             log.push_back(attacker.getNickname() + " is frozen solid!");
             attacker.resetProtectCounter();
             attacker.addVolatile("moved_this_turn", 1);
+            interruptCharge();
             return;
         }
     }
@@ -1086,6 +1147,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         log.push_back(attacker.getNickname() + " is paralyzed! It can't move!");
         attacker.resetProtectCounter();
         attacker.addVolatile("moved_this_turn", 1);
+        interruptCharge();
         return;
     }
 
@@ -1106,6 +1168,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             attacker.setCurrentHp(std::max(0, attacker.getCurrentHp() - std::max(1, selfDmg)));
             attacker.resetProtectCounter();
             attacker.addVolatile("moved_this_turn", 1);
+            interruptCharge();
             return;
         }
     }
@@ -1114,10 +1177,11 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         log.push_back(attacker.getNickname() + " can't use " + move.name + " after the taunt!");
         attacker.resetProtectCounter();
         attacker.addVolatile("moved_this_turn", 1);
+        interruptCharge();
         return;
     }
 
-    if (move.isCharge && attacker.getChargingMove() != move.name) {
+    if (move.isCharge && attacker.getChargingMove() != moveId) {
         if ((move.name == "Solar Beam" || move.name == "Solar Blade") && (weather == "Sun" || weather == "DesolateLand")) {
         }
         else if (aItem == "POWERHERB") {
@@ -1126,17 +1190,41 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         }
         else {
             log.push_back(attacker.getNickname() + " began charging " + move.name + "!");
-            attacker.setChargingMove(move.name);
+            attacker.setChargingMove(moveId);
             attacker.resetProtectCounter();
 
             if (move.name == "Meteor Beam" || move.name == "Electro Shot") attacker.modifyStat("spa", 1, log);
             else if (move.name == "Skull Bash") attacker.modifyStat("def", 1, log);
 
+            if (move.name == "Dig") {
+                attacker.addVolatile("semi_invuln_dig", 1);
+                log.push_back(attacker.getNickname() + " dug a hole!");
+            }
+            else if (move.name == "Fly" || move.name == "Bounce") {
+                attacker.addVolatile("semi_invuln_fly", 1);
+                log.push_back(attacker.getNickname() + " sprang up!");
+            }
+            else if (move.name == "Dive") {
+                attacker.addVolatile("semi_invuln_dive", 1);
+                log.push_back(attacker.getNickname() + " hid underwater!");
+            }
+            else if (move.name == "Phantom Force" || move.name == "Shadow Force") {
+                attacker.addVolatile("semi_invuln_phantom", 1);
+                log.push_back(attacker.getNickname() + " vanished instantly!");
+            }
+
             attacker.addVolatile("moved_this_turn", 1);
             return;
         }
     }
-    if (attacker.getChargingMove() == move.name) attacker.setChargingMove("");
+
+    if (attacker.getChargingMove() == moveId) {
+        attacker.setChargingMove("");
+        attacker.removeVolatile("semi_invuln_dig");
+        attacker.removeVolatile("semi_invuln_fly");
+        attacker.removeVolatile("semi_invuln_dive");
+        attacker.removeVolatile("semi_invuln_phantom");
+    }
 
     log.push_back(attacker.getNickname() + " used " + move.name + "!");
 
@@ -1156,7 +1244,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
     if (move.volatileStatus == "lockedmove" || move.name == "Outrage" || move.name == "Petal Dance" || move.name == "Thrash" || move.name == "Rollout" || move.name == "Ice Ball") {
         if (attacker.getLockedTurns() <= 0) {
-            attacker.setLockedMove(move.name, (move.name == "Rollout" || move.name == "Ice Ball") ? 5 : ((rand() % 2) + 2));
+            attacker.setLockedMove(moveId, (move.name == "Rollout" || move.name == "Ice Ball") ? 5 : ((rand() % 2) + 2));
             if (move.name == "Rollout" || move.name == "Ice Ball") attacker.addVolatile("rollout_count", 0);
         }
         else if (move.name == "Rollout" || move.name == "Ice Ball") {
@@ -1573,6 +1661,40 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             return;
         }
 
+        if (move.name == "Spite") {
+            std::string lastM = defender.lastMoveUsed;
+            if (lastM.empty() || defender.getMovePP(lastM) <= 0) {
+                log.push_back("But it failed!");
+            }
+            else {
+                int reduced = std::min(4, defender.getMovePP(lastM));
+                defender.setMovePP(lastM, defender.getMovePP(lastM) - reduced);
+                log.push_back("It reduced the PP of " + defender.getNickname() + "'s " + lastM + " by " + std::to_string(reduced) + "!");
+                checkLeppaBerry(defender);
+            }
+            attacker.addVolatile("moved_this_turn", 1);
+            return;
+        }
+
+        if (move.name == "Aqua Ring") {
+            if (!attacker.hasVolatile("aquaring")) {
+                attacker.addVolatile("aquaring", 999);
+                log.push_back(attacker.getNickname() + " surrounded itself with a veil of water!");
+            }
+            else { log.push_back("But it failed!"); }
+            attacker.addVolatile("moved_this_turn", 1);
+            return;
+        }
+        if (move.name == "Ingrain") {
+            if (!attacker.hasVolatile("ingrain")) {
+                attacker.addVolatile("ingrain", 999);
+                log.push_back(attacker.getNickname() + " planted its roots!");
+            }
+            else { log.push_back("But it failed!"); }
+            attacker.addVolatile("moved_this_turn", 1);
+            return;
+        }
+
         for (const auto& [stat, stage] : move.selfBoosts) attacker.modifyStat(stat, stage, log);
 
         for (const auto& [stat, stage] : move.boosts) {
@@ -1723,7 +1845,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
             if (immune) log.push_back("It doesn't affect " + defender.getNickname() + "...");
             else {
-                defender.setStatus(move.status, (move.status == "slp") ? (rand() % 3) + 1 : 0);
+                defender.setStatus(move.status, (move.status == "slp") ? (rand() % 3) + 1 : ((move.status == "tox") ? 1 : 0));
                 if (move.status == "brn") log.push_back(defender.getNickname() + " was burned!");
                 else if (move.status == "psn" || move.status == "tox") {
                     log.push_back(defender.getNickname() + " was poisoned!");
@@ -1840,6 +1962,38 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             }
         }
 
+        // --- NEW: Semi-Invulnerability Evasion ---
+        bool isSemiInvuln = false;
+        if (defender.hasVolatile("semi_invuln_dig")) {
+            if (move.name != "Earthquake" && move.name != "Magnitude" && move.name != "Fissure") isSemiInvuln = true;
+        }
+        else if (defender.hasVolatile("semi_invuln_fly")) {
+            if (move.name != "Gust" && move.name != "Twister" && move.name != "Thunder" && move.name != "Hurricane" && move.name != "Smack Down" && move.name != "Sky Uppercut" && move.name != "Thousand Arrows") isSemiInvuln = true;
+        }
+        else if (defender.hasVolatile("semi_invuln_dive")) {
+            if (move.name != "Surf" && move.name != "Whirlpool") isSemiInvuln = true;
+        }
+        else if (defender.hasVolatile("semi_invuln_phantom")) {
+            isSemiInvuln = true;
+        }
+
+        if (aAbil == "No Guard" || dAbil == "No Guard" || defender.hasVolatile("lockon")) isSemiInvuln = false;
+        if (move.name == "Toxic" && (attacker.getType1() == "Poison" || attacker.getType2() == "Poison")) isSemiInvuln = false;
+
+        if (isSemiInvuln) {
+            if (i == 0) log.push_back(attacker.getNickname() + " avoided the attack!");
+
+            if (move.name == "High Jump Kick" || move.name == "Jump Kick" || move.name == "Axe Kick") {
+                if (aAbil != "Magic Guard") {
+                    int crashDamage = std::max(1, attacker.getHp() / 2);
+                    attacker.setCurrentHp(std::max(0, attacker.getCurrentHp() - crashDamage));
+                    log.push_back(attacker.getNickname() + " kept going and crashed!");
+                }
+            }
+            break;
+        }
+        // -----------------------------------------
+
         bool canCrit = (dAbil != "Battle Armor" && dAbil != "Shell Armor");
         if (move.name == "Frost Breath" || move.name == "Storm Throw" || move.name == "Wicked Blow" || move.name == "Surging Strikes" || move.name == "Flower Trick") {
             isCrit = canCrit;
@@ -1955,9 +2109,16 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
     if (actualHits > 0) {
         if (move.name == "Thousand Arrows" || move.name == "Smack Down") {
-            if (defender.getType1() == "Flying" || defender.getType2() == "Flying" || dAbil == "Levitate" || dItem == "AIRBALLOON") {
+            if (defender.getType1() == "Flying" || defender.getType2() == "Flying" || dAbil == "Levitate" || dItem == "AIRBALLOON" || defender.hasVolatile("semi_invuln_fly")) {
                 defender.addVolatile("smackdown", 999);
-                log.push_back(defender.getNickname() + " fell straight down!");
+                if (defender.hasVolatile("semi_invuln_fly")) {
+                    defender.setChargingMove("");
+                    defender.removeVolatile("semi_invuln_fly");
+                    log.push_back(defender.getNickname() + " was knocked to the ground!");
+                }
+                else {
+                    log.push_back(defender.getNickname() + " fell straight down!");
+                }
             }
         }
         if (move.name == "Roar of Time" || move.name == "Hyper Beam" || move.name == "Giga Impact" || move.name == "Frenzy Plant" || move.name == "Blast Burn" || move.name == "Hydro Cannon" || move.name == "Rock Wrecker" || move.name == "Meteor Assault" || move.name == "Prismatic Laser" || move.name == "Eternabeam") {
@@ -2092,7 +2253,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
             if (aAbil == "Toxic Chain" && defender.getStatus().empty() && dAbil != "Shield Dust") {
                 if (rand() % 100 < 30) {
-                    defender.setStatus("tox");
+                    defender.setStatus("tox", 1);
                     log.push_back(defender.getNickname() + " was badly poisoned by the Toxic Chain!");
                 }
             }
@@ -2167,7 +2328,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
     }
 
     if (move.volatileStatus == "lockedmove") {
-        if (attacker.getLockedTurns() <= 0) attacker.setLockedMove(move.name, (rand() % 2) + 2);
+        if (attacker.getLockedTurns() <= 0) attacker.setLockedMove(moveId, (rand() % 2) + 2);
     }
 
     if (actualHits > 0 && defender.getCurrentHp() > 0 && !blocksEffects) {
@@ -2241,6 +2402,10 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
                     defender.addVolatile("confusion", (rand() % 4) + 2);
                     log.push_back(defender.getNickname() + " became confused!");
                 }
+                if (move.volatileStatus == "saltcure" && !defender.hasVolatile("saltcure")) {
+                    defender.addVolatile("saltcure", 999);
+                    log.push_back(defender.getNickname() + " is being salted!");
+                }
 
                 if (!move.status.empty() && defender.getStatus().empty()) {
                     bool immune = false;
@@ -2271,7 +2436,7 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
                     if (immune) log.push_back("It doesn't affect " + defender.getNickname() + "...");
                     else {
-                        defender.setStatus(move.status, (move.status == "slp") ? (rand() % 3) + 1 : 0);
+                        defender.setStatus(move.status, (move.status == "slp") ? (rand() % 3) + 1 : ((move.status == "tox") ? 1 : 0));
                         if (move.status == "brn") log.push_back(defender.getNickname() + " was burned!");
                         else if (move.status == "psn" || move.status == "tox") {
                             log.push_back(defender.getNickname() + " was poisoned!");
@@ -2446,6 +2611,7 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
     tickSide(playerSide, "Your team");
     tickSide(enemySide, "The opposing team");
 
+    // --- REBUILT POST-TURN LOGIC FOR ACCURATE EOT DAMAGE ---
     auto postTurn = [&](Pokemon& p, Pokemon& opp) {
         p.lastDamageTaken = 0;
         p.lastDamageCategory = "";
@@ -2471,17 +2637,40 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 }
                 };
 
+            // 1. WEATHER DAMAGE 
+            if (abil != "Magic Guard") {
+                if (field.weather == "Sandstorm") {
+                    if (p.getType1() != "Rock" && p.getType2() != "Rock" &&
+                        p.getType1() != "Ground" && p.getType2() != "Ground" &&
+                        p.getType1() != "Steel" && p.getType2() != "Steel" &&
+                        abil != "Sand Force" && abil != "Sand Rush" && abil != "Sand Veil" && abil != "Overcoat" && item != "SAFETYGOGGLES") {
+                        p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 16)));
+                        log.push_back(p.getNickname() + " is buffeted by the sandstorm!");
+                    }
+                }
+                else if (field.weather == "Hail") {
+                    if (p.getType1() != "Ice" && p.getType2() != "Ice" &&
+                        abil != "Ice Body" && abil != "Snow Cloak" && abil != "Overcoat" && item != "SAFETYGOGGLES") {
+                        p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 16)));
+                        log.push_back(p.getNickname() + " is buffeted by the hail!");
+                    }
+                }
+            }
+
+            // 2. TRAPPING & BINDING
             if (p.hasVolatile("partiallytrapped")) {
                 if (p.getVolatileTurns("partiallytrapped") == 1) {
                     log.push_back(p.getNickname() + " was freed from the trap!");
                 }
-                else {
+                else if (abil != "Magic Guard") {
                     int trapDmg = p.getHp() / 8;
                     if (normalizeString(opp.getHeldItem()) == "BINDINGBAND") trapDmg = p.getHp() / 6;
                     p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, trapDmg)));
                     log.push_back(p.getNickname() + " is hurt by its trap!");
                 }
             }
+
+            // 3. EOT HEALING & TIMERS
             if (p.hasVolatile("taunt") && p.getVolatileTurns("taunt") == 1) log.push_back(p.getNickname() + "'s taunt wore off!");
             if (p.hasVolatile("encore") && p.getVolatileTurns("encore") == 1) log.push_back(p.getNickname() + "'s encore ended!");
             if (p.hasVolatile("disable") && p.getVolatileTurns("disable") == 1) log.push_back(p.getNickname() + "'s disable ended!");
@@ -2508,7 +2697,7 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 log.push_back(p.getNickname() + " was burned by its Flame Orb!");
             }
             if (item == "TOXICORB" && p.getStatus().empty() && p.getType1() != "Poison" && p.getType2() != "Poison" && p.getType1() != "Steel" && p.getType2() != "Steel" && abil != "Immunity" && abil != "Pastel Veil") {
-                p.setStatus("tox");
+                p.setStatus("tox", 1);
                 log.push_back(p.getNickname() + " was badly poisoned by its Toxic Orb!");
             }
             if (item == "STICKYBARB" && abil != "Magic Guard") {
@@ -2538,7 +2727,7 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 p.modifyStat("spe", 1, log);
                 log.push_back(p.getNickname() + "'s Speed Boost increased its Speed!");
             }
-            if (abil == "Solar Power" && (weather == "Sun" || weather == "DesolateLand")) {
+            if (abil == "Solar Power" && (weather == "Sun" || weather == "DesolateLand") && abil != "Magic Guard") {
                 p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 8)));
                 log.push_back(p.getNickname() + " was hurt by the sunlight!");
             }
@@ -2569,9 +2758,7 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 std::vector<std::string> stats = { "atk", "def", "spa", "spd", "spe", "accuracy", "evasion" };
                 std::string raiseStat = stats[rand() % stats.size()];
                 std::string lowerStat = stats[rand() % stats.size()];
-                while (raiseStat == lowerStat) {
-                    lowerStat = stats[rand() % stats.size()];
-                }
+                while (raiseStat == lowerStat) lowerStat = stats[rand() % stats.size()];
                 log.push_back(p.getNickname() + "'s Moody activated!");
                 p.modifyStat(raiseStat, 2, log);
                 p.modifyStat(lowerStat, -1, log);
@@ -2627,21 +2814,49 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 p.setCurrentHp(std::min(p.getHp(), p.getCurrentHp() + std::max(1, p.getHp() / 8)));
                 log.push_back(p.getNickname() + "'s Poison Heal restored its HP!");
             }
+            // 4. STATUS DAMAGE 
             else if (abil != "Magic Guard") {
-                if (p.getStatus() == "brn" || p.getStatus() == "psn" || p.getStatus() == "tox") {
-                    p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 8)));
-                    log.push_back(p.getNickname() + " is hurt by its status!");
+                if (p.getStatus() == "brn") {
+                    p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 16)));
+                    log.push_back(p.getNickname() + " is hurt by its burn!");
                 }
+                else if (p.getStatus() == "psn") {
+                    p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 8)));
+                    log.push_back(p.getNickname() + " is hurt by poison!");
+                }
+                else if (p.getStatus() == "tox") {
+                    if (p.getStatusTurns() == 0) p.setStatus("tox", 1);
+                    int toxDmg = std::max(1, (p.getHp() * p.getStatusTurns()) / 16);
+                    p.setCurrentHp(std::max(0, p.getCurrentHp() - toxDmg));
+                    p.setStatus("tox", p.getStatusTurns() + 1);
+                    log.push_back(p.getNickname() + " is hurt by toxic poison!");
+                }
+
                 if (p.hasVolatile("curse")) {
                     p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 4)));
                     log.push_back(p.getNickname() + " is afflicted by the curse!");
                 }
 
+                if (p.hasVolatile("saltcure")) {
+                    int fraction = (p.getType1() == "Water" || p.getType2() == "Water" || p.getType1() == "Steel" || p.getType2() == "Steel") ? 4 : 8;
+                    p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / fraction)));
+                    log.push_back(p.getNickname() + " is hurting from Salt Cure!");
+                }
+
                 if (p.hasVolatile("leechseed")) {
                     int drain = std::max(1, p.getHp() / 8);
                     p.setCurrentHp(std::max(0, p.getCurrentHp() - drain));
-                    opp.setCurrentHp(std::min(opp.getHp(), opp.getCurrentHp() + drain));
-                    log.push_back(p.getNickname() + "'s health is sapped by Leech Seed!");
+
+                    if (normalizeString(opp.getHeldItem()) == "BIGROOT") drain = std::floor(drain * 1.3);
+
+                    if (opp.getAbility() != "Liquid Ooze") {
+                        opp.setCurrentHp(std::min(opp.getHp(), opp.getCurrentHp() + drain));
+                        log.push_back(p.getNickname() + "'s health is sapped by Leech Seed!");
+                    }
+                    else {
+                        opp.setCurrentHp(std::max(0, opp.getCurrentHp() - drain));
+                        log.push_back(p.getNickname() + "'s Leech Seed was hurt by Liquid Ooze!");
+                    }
                 }
 
                 if (abil == "Dry Skin") {
@@ -2654,6 +2869,20 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                         log.push_back(p.getNickname() + " had its HP restored by the rain!");
                     }
                 }
+            }
+
+            // 5. SECONDARY HEALS (Aqua Ring and Ingrain)
+            if (p.hasVolatile("aquaring") && p.getCurrentHp() < p.getHp()) {
+                int heal = std::max(1, p.getHp() / 16);
+                if (item == "BIGROOT") heal = std::floor(heal * 1.3);
+                p.setCurrentHp(std::min(p.getHp(), p.getCurrentHp() + heal));
+                log.push_back(p.getNickname() + " restored HP using its Aqua Ring!");
+            }
+            if (p.hasVolatile("ingrain") && p.getCurrentHp() < p.getHp()) {
+                int heal = std::max(1, p.getHp() / 16);
+                if (item == "BIGROOT") heal = std::floor(heal * 1.3);
+                p.setCurrentHp(std::min(p.getHp(), p.getCurrentHp() + heal));
+                log.push_back(p.getNickname() + " absorbed nutrients with its roots!");
             }
 
             if (field.terrain == "Grassy Terrain" && p.getType1() != "Flying" && p.getType2() != "Flying" && abil != "Levitate" && item != "AIRBALLOON") {
