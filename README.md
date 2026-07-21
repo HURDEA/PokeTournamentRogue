@@ -6,7 +6,7 @@ An offline, C++17 competitive Pokemon rogue-lite battle simulator. This project 
 
 ### How to Play (Windows)
 **No IDE, installation, or compiling required.**
-1. **[Download PokeTournamentRogue v1.0.0 (ZIP)](https://github.com/HURDEA/PokeTournamentRogue/archive/refs/tags/v1.0.0.zip)** 
+1. **[Download PokeTournamentRogue v1.0.0 (ZIP)](https://github.com/HURDEA/PokeTournamentRogue/releases/download/v1.0.0/PokeTournamentRogue_Playable.zip)** 
 2. Extract the `.zip` archive anywhere on your PC.
 3. Double-click `PokeTournamentRogue.exe` to enter the arena.
 
