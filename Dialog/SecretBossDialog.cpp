@@ -1,99 +1,104 @@
-#include "BattleDialog.h"
+#include "SecretBossDialog.h"
 #include "SummaryDialog.h"
 #include "../Engine/BattleEngine.h"
 #include "../Engine/AI/AiDetector.h"
+#include "../Progression/TrainerRoster.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPixmap>
 #include <QTimer>
-#include <QInputDialog>
 #include <QIcon>
 #include <QFile>
-#include <QDebug>
 #include <QMessageBox>
-#include <QSizePolicy>
-#include <QSettings>
-#include <QVariant>
 #include <QPropertyAnimation>
 #include <QVariantAnimation>
 #include <QGraphicsOpacityEffect>
 #include <QGraphicsColorizeEffect>
+#include <QStringList>
+#include <algorithm>
+#include <random>
 
-class LoadingDialog : public QDialog {
-private:
-    QLabel* tipTitle;
-    QLabel* tipDesc;
-    std::vector<std::pair<QString, QString>> tips = {
-        {"Intimidate", "Lowers the opponent's Attack stat upon entering battle."},
-        {"Levitate", "Gives full immunity to all Ground-type moves."},
-        {"Overgrow", "Powers up Grass-type moves when the Pokémon's HP is low."},
-        {"Sturdy", "It cannot be knocked out with one hit as long as its HP is full."},
-        {"Static", "The Pokémon creates a static charge that may cause paralysis if hit by a physical move."},
-        {"Synchronize", "Passes poison, paralyze, or burn to the Pokémon that inflicted it."},
-        {"Inner Focus", "The Pokémon's intensely focused, and that protects the Pokémon from flinching."},
-        {"Huge Power", "Doubles the Pokémon's Attack stat in battle."},
-        {"Speed Boost", "Its Speed stat is gradually boosted every turn."},
-        {"Protean", "Changes the Pokémon's type to the type of the move it's about to use."}
-    };
+// =========================================================
+// CUSTOM OOP EXAM POP-UP
+// =========================================================
+struct OOPQuestion {
+    QString question;
+    QStringList answers; // Index 0 is ALWAYS the correct answer in this definition
+};
 
+class OOPQuizDialog : public QDialog {
 public:
-    LoadingDialog(QWidget* parent = nullptr) : QDialog(parent) {
+    OOPQuizDialog(QWidget* parent = nullptr) : QDialog(parent) {
         setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::Dialog);
-        setFixedSize(400, 220);
+        setFixedSize(500, 350);
 
-        setStyleSheet(R"(
-            QDialog { background-color: #0f1115; border: 2px solid #2d303e; border-radius: 8px; }
-            QLabel#title { color: #ffffff; font-weight: 900; font-size: 18px; letter-spacing: 1px; border: none; }
-            QLabel#tipTitle { color: #007acc; font-weight: 800; font-size: 14px; border: none; }
-            QLabel#tipDesc { color: #8b949e; font-size: 12px; font-style: italic; border: none; }
-            QPushButton { 
-                background-color: #1a1c23; color: #d1d5db; font-weight: 800; font-size: 13px;
-                padding: 12px 20px; border-radius: 6px; border: 1px solid #2d303e; letter-spacing: 1px;
-            }
-            QPushButton:hover { background-color: #242733; border: 1px solid #007acc; color: #ffffff; }
-        )");
+        // Inherit the intense boss theme
+        if (parent) setStyleSheet(parent->styleSheet());
 
         QVBoxLayout* layout = new QVBoxLayout(this);
         layout->setContentsMargins(25, 25, 25, 25);
-        layout->setSpacing(10);
+        layout->setSpacing(15);
 
-        QLabel* title = new QLabel("PREPARING BATTLE...");
-        title->setObjectName("title");
-        title->setAlignment(Qt::AlignCenter);
-        layout->addWidget(title);
+        QLabel* header = new QLabel("INTERRUPT: POP QUIZ!");
+        header->setStyleSheet("font-size: 20px; font-weight: 900; color: #ff4757; border: none; background: transparent;");
+        header->setAlignment(Qt::AlignCenter);
+        layout->addWidget(header);
 
-        tipTitle = new QLabel();
-        tipTitle->setObjectName("tipTitle");
-        tipTitle->setAlignment(Qt::AlignCenter);
-        layout->addWidget(tipTitle);
+        std::vector<OOPQuestion> pool = {
+            {"Which OOP principle hides internal states and requires all interaction to be performed through an object's methods?",
+             {"Encapsulation", "Polymorphism", "Inheritance", "Abstraction"}},
+            {"What is the concept of a derived class redefining a method from its base class?",
+             {"Overriding", "Overloading", "Encapsulation", "Virtualization"}},
+            {"In C++, what happens if a class contains at least one pure virtual function?",
+             {"It becomes an abstract class", "It fails to compile", "It becomes a concrete class", "It throws a runtime error"}},
+            {"What type of binding is achieved when using virtual functions in C++?",
+             {"Dynamic / Late Binding", "Static / Early Binding", "Compile-time Binding", "Lexical Binding"}},
+            {"Which keyword is used in C++ to prevent a class from being inherited?",
+             {"final", "const", "static", "sealed"}},
+            {"What is a 'memory leak' in the context of C++?",
+             {"Failing to deallocate dynamically allocated memory", "Exceeding the array bounds", "A pointer pointing to a null address", "A stack overflow from deep recursion"}},
+            {"What does the 'O' in the S.O.L.I.D. principles stand for?",
+             {"Open/Closed Principle", "Object-Oriented Principle", "Overloading Principle", "Override Principle"}}
+        };
 
-        tipDesc = new QLabel();
-        tipDesc->setObjectName("tipDesc");
-        tipDesc->setWordWrap(true);
-        tipDesc->setAlignment(Qt::AlignCenter);
-        layout->addWidget(tipDesc);
+        OOPQuestion q = pool[rand() % pool.size()];
 
-        layout->addStretch();
+        QLabel* questionLabel = new QLabel(q.question);
+        questionLabel->setWordWrap(true);
+        questionLabel->setStyleSheet("font-size: 15px; font-weight: bold; color: #ffffff; border: none; background: transparent;");
+        questionLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(questionLabel);
 
-        QPushButton* nextBtn = new QPushButton("START BATTLE");
-        connect(nextBtn, &QPushButton::clicked, this, &QDialog::accept);
-        layout->addWidget(nextBtn, 0, Qt::AlignCenter);
+        // Map buttons to answers and shuffle them so the correct answer isn't always first
+        std::vector<int> indices = { 0, 1, 2, 3 };
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(indices.begin(), indices.end(), g);
 
-        loadRandomTip();
-    }
-    void loadRandomTip() {
-        auto tip = tips[rand() % tips.size()];
-        tipTitle->setText("ABILITY INSIGHT: " + tip.first.toUpper());
-        tipDesc->setText(tip.second);
+        for (int i : indices) {
+            QPushButton* btn = new QPushButton(q.answers[i]);
+            btn->setMinimumHeight(40);
+            if (i == 0) {
+                // Correct answer triggers Accept
+                connect(btn, &QPushButton::clicked, this, &QDialog::accept);
+            }
+            else {
+                // Wrong answer triggers Reject
+                connect(btn, &QPushButton::clicked, this, &QDialog::reject);
+            }
+            layout->addWidget(btn);
+        }
     }
 };
 
-BattleDialog::BattleDialog(Controller& ctrl, const std::vector<Pokemon>& pParty, const std::vector<Pokemon>& eParty, QWidget* parent)
-    : QDialog(parent), controller(ctrl), playerParty(pParty), enemyParty(eParty),
+// =========================================================
+
+SecretBossDialog::SecretBossDialog(Controller& ctrl, const std::vector<Pokemon>& pParty, QWidget* parent)
+    : QDialog(parent), controller(ctrl), playerParty(pParty),
     currentPlayerIndex(0), currentEnemyIndex(0), lastPlayerHp(-1), lastEnemyHp(-1),
     isPlayerMegaEvolved(false), isEnemyMegaEvolved(false), megaEvolveNextMove(false),
     isFaintSwitch(false), isMidTurnSwitch(false), currentPhase(TurnPhase::Idle),
-    turnCounter(1), isNewTurn(true) {
+    turnCounter(1), isNewTurn(true), hasShownHalfwayDialogue(false), hasShownLastMonDialogue(false) {
 
     for (auto& p : playerParty) {
         for (const auto& m : p.getMoves()) {
@@ -106,41 +111,46 @@ BattleDialog::BattleDialog(Controller& ctrl, const std::vector<Pokemon>& pParty,
         p.fullyHeal();
     }
 
-    for (auto& e : enemyParty) {
-        if (e.getMoves().empty()) e.setMoves({ "tackle", "growl" });
-        for (const auto& m : e.getMoves()) {
-            if (!m.empty() && m != "None" && e.getMaxMovePP(m) <= 0) {
+    // --- GENERATE LEVEL 100 SECRET BOSS TEAM ---
+    TrainerTeam gabi = TrainerRoster::getSecretBoss();
+    for (const auto& ep : gabi.team) {
+        Pokemon baseData = controller.getSpeciesDataByName(ep.species);
+        if (baseData.getName().empty()) continue;
+
+        Pokemon battleMon(
+            rand() % 10000 + 30000, baseData.getSpeciesId(), baseData.getName(),
+            baseData.getType1(), baseData.getType2(), baseData.getBaseHp(),
+            baseData.getBaseAttack(), baseData.getBaseDefense(), baseData.getBaseSpAttack(),
+            baseData.getBaseSpDefense(), baseData.getBaseSpeed(),
+            100, // <--- FORCED LEVEL 100
+            ep.heldItem, -1, baseData.getName(), ep.moves,
+            "Serious", ep.ability, 31, 31, 31, 31, 31, 31, // Max DVs
+            baseData.getWeight(), baseData.getHappiness()
+        );
+
+        for (const auto& m : battleMon.getMoves()) {
+            if (!m.empty() && m != "None") {
                 int pp = controller.getMoveData(m).pp;
-                e.setMaxMovePP(m, pp);
-                e.setMovePP(m, pp);
+                battleMon.setMaxMovePP(m, pp);
+                battleMon.setMovePP(m, pp);
             }
         }
-        e.fullyHeal();
+        battleMon.fullyHeal();
+        enemyParty.push_back(battleMon);
     }
+    // -------------------------------------------
 
     for (size_t i = 0; i < playerParty.size(); i++) {
         if (playerParty[i].getCurrentHp() > 0) { currentPlayerIndex = i; break; }
     }
-    for (size_t i = 0; i < enemyParty.size(); i++) {
-        if (enemyParty[i].getCurrentHp() > 0) { currentEnemyIndex = i; break; }
-    }
 
     setupUI();
     connectSignals();
-
-    QSettings settings("MyCompany", "PokemonBoxManager");
-    QString savedTheme = settings.value("mainHallTheme", "Pro Dark").toString();
-    applyTheme(savedTheme);
-
-    LoadingDialog loading(this);
-    loading.exec();
+    applyBossTheme();
 
     engine = std::make_unique<BattleEngine>(controller);
-
-    int pFaints = 0; for (const auto& pk : playerParty) if (pk.getCurrentHp() <= 0) pFaints++;
-    int eFaints = 0; for (const auto& pk : enemyParty) if (pk.getCurrentHp() <= 0) eFaints++;
-    engine->setFaintedCount(true, pFaints);
-    engine->setFaintedCount(false, eFaints);
+    engine->setFaintedCount(true, 0);
+    engine->setFaintedCount(false, 0);
 
     updateBattleDisplay();
 
@@ -148,18 +158,19 @@ BattleDialog::BattleDialog(Controller& ctrl, const std::vector<Pokemon>& pParty,
     engine->onSwitchIn(enemyParty[currentEnemyIndex], false, currentLog, &playerParty[currentPlayerIndex]);
     engine->checkExtremeWeather(playerParty[currentPlayerIndex], enemyParty[currentEnemyIndex], currentLog);
     updateFieldDisplay();
-    flushLog(false);
 
     animateSwitchIn(true);
     animateSwitchIn(false);
 
-    currentLog.push_back("Trainer challenges you to a battle!");
+    // --- CUSTOM INTRO DIALOGUE ---
+    currentLog.push_back("Immortal Gabi Mircea: Ah, a student. Let's see if your algorithms are optimized.");
+    currentLog.push_back("Immortal Gabi Mircea: Welcome to the true UBB FMI final exam!");
     flushLog(false);
 }
 
-BattleDialog::~BattleDialog() = default;
+SecretBossDialog::~SecretBossDialog() = default;
 
-void BattleDialog::setupUI() {
+void SecretBossDialog::setupUI() {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
@@ -331,151 +342,70 @@ void BattleDialog::setupUI() {
     switchPanel->hide();
 
     mainLayout->addWidget(controlArea);
-    setWindowTitle("Pokémon Champions - Battle Screen");
+    setWindowTitle("FINAL EXAM - UBB FMI");
 
     setMinimumSize(540, 680);
     resize(540, 720);
 }
 
-void BattleDialog::applyTheme(const QString& themeName) {
-    QString bg, ctrlBg, textBase, textMuted, fieldColor;
-    QString hudBg, hudBorderP, hudBorderE;
-    QString btnBg, btnBorder, btnText, btnHoverBg, btnHoverBorder;
-    QString dangerBorder, dangerHoverBg, dangerHoverText;
-    QString successBorder, successHoverBg, successHoverText;
-    QString radius = "6px";
-
-    if (themeName == "Pro Dark") {
-        bg = "#111318"; ctrlBg = "#0f1115"; textBase = "#ffffff"; textMuted = "#8b949e"; fieldColor = "#007acc";
-        hudBg = "rgba(15, 17, 21, 230)"; hudBorderP = "#007acc"; hudBorderE = "#e74c3c";
-        btnBg = "#1a1c23"; btnBorder = "#2d303e"; btnText = "#d1d5db"; btnHoverBg = "#242733"; btnHoverBorder = "#007acc";
-        dangerBorder = "#e74c3c"; dangerHoverBg = "#2c1618"; dangerHoverText = "#ff6b6b";
-        successBorder = "#27ae60"; successHoverBg = "#142b1c"; successHoverText = "#2ecc71";
-    }
-    else if (themeName == "Mystic Water") {
-        bg = "#b3e5fc"; ctrlBg = "#e1f5fe"; textBase = "#01579b"; textMuted = "#0277bd"; fieldColor = "#0288d1";
-        hudBg = "rgba(225, 245, 254, 230)"; hudBorderP = "#0288d1"; hudBorderE = "#e53935";
-        btnBg = "#ffffff"; btnBorder = "#81d4fa"; btnText = "#01579b"; btnHoverBg = "#b3e5fc"; btnHoverBorder = "#0288d1";
-        dangerBorder = "#d32f2f"; dangerHoverBg = "#ffcdd2"; dangerHoverText = "#c62828";
-        successBorder = "#388e3c"; successHoverBg = "#c8e6c9"; successHoverText = "#2e7d32";
-    }
-    else if (themeName == "Electric Spark") {
-        bg = "#fff9c4"; ctrlBg = "#fffde7"; textBase = "#212121"; textMuted = "#616161"; fieldColor = "#f57f17";
-        hudBg = "rgba(255, 253, 231, 230)"; hudBorderP = "#fbc02d"; hudBorderE = "#d32f2f";
-        btnBg = "#ffffff"; btnBorder = "#fff176"; btnText = "#424242"; btnHoverBg = "#fff59d"; btnHoverBorder = "#fbc02d";
-        dangerBorder = "#d32f2f"; dangerHoverBg = "#ffcdd2"; dangerHoverText = "#c62828";
-        successBorder = "#388e3c"; successHoverBg = "#c8e6c9"; successHoverText = "#2e7d32";
-    }
-    else if (themeName == "Leafy Forest") {
-        bg = "#dcedc8"; ctrlBg = "#f1f8e9"; textBase = "#1b5e20"; textMuted = "#33691e"; fieldColor = "#558b2f";
-        hudBg = "rgba(241, 248, 233, 230)"; hudBorderP = "#689f38"; hudBorderE = "#e53935";
-        btnBg = "#ffffff"; btnBorder = "#c5e1a5"; btnText = "#2e7d32"; btnHoverBg = "#dcedc8"; btnHoverBorder = "#7cb342";
-        dangerBorder = "#d32f2f"; dangerHoverBg = "#ffcdd2"; dangerHoverText = "#c62828";
-        successBorder = "#388e3c"; successHoverBg = "#c8e6c9"; successHoverText = "#2e7d32";
-    }
-    else if (themeName == "Ember Volcano") {
-        bg = "#1a0b0b"; ctrlBg = "#2d1313"; textBase = "#ff4757"; textMuted = "#a36e6e"; fieldColor = "#ffa502";
-        hudBg = "rgba(45, 19, 19, 230)"; hudBorderP = "#ffa502"; hudBorderE = "#eccc68";
-        btnBg = "#2d1313"; btnBorder = "#ff4757"; btnText = "#ff6b81"; btnHoverBg = "#ff4757"; btnHoverBorder = "#ff4757";
-        dangerBorder = "#eccc68"; dangerHoverBg = "#592b2b"; dangerHoverText = "#eccc68";
-        successBorder = "#ff4757"; successHoverBg = "#4a1c1c"; successHoverText = "#ff6b81";
-    }
-    else if (themeName == "Psychic Mind") {
-        bg = "#190033"; ctrlBg = "#2d1b4e"; textBase = "#e056fd"; textMuted = "#9b7eb5"; fieldColor = "#be2edd";
-        hudBg = "rgba(45, 27, 78, 230)"; hudBorderP = "#be2edd"; hudBorderE = "#ff4757";
-        btnBg = "#2d1b4e"; btnBorder = "#8c7ae6"; btnText = "#dcbdf2"; btnHoverBg = "#be2edd"; btnHoverBorder = "#e056fd";
-        dangerBorder = "#ff4757"; dangerHoverBg = "#4a1c40"; dangerHoverText = "#ff6b81";
-        successBorder = "#e056fd"; successHoverBg = "#3c1a40"; successHoverText = "#f3a6ff";
-    }
-    else if (themeName == "Dragon's Den") {
-        bg = "#0b0a1a"; ctrlBg = "#15142b"; textBase = "#f5cd79"; textMuted = "#706f8a"; fieldColor = "#e66767";
-        hudBg = "rgba(21, 20, 43, 230)"; hudBorderP = "#e66767"; hudBorderE = "#ff7979";
-        btnBg = "#15142b"; btnBorder = "#546de5"; btnText = "#f5cd79"; btnHoverBg = "#546de5"; btnHoverBorder = "#778beb";
-        dangerBorder = "#e66767"; dangerHoverBg = "#2b1414"; dangerHoverText = "#ff7979";
-        successBorder = "#f5cd79"; successHoverBg = "#332d16"; successHoverText = "#ffeba3";
-    }
-    else if (themeName == "Fairy Tale") {
-        bg = "#fff0f5"; ctrlBg = "#ffffff"; textBase = "#e84393"; textMuted = "#b78e9b"; fieldColor = "#fd79a8";
-        hudBg = "rgba(255, 255, 255, 230)"; hudBorderP = "#fd79a8"; hudBorderE = "#d63031";
-        btnBg = "#ffffff"; btnBorder = "#fab1a0"; btnText = "#d63031"; btnHoverBg = "#fd79a8"; btnHoverBorder = "#e84393";
-        dangerBorder = "#d63031"; dangerHoverBg = "#ffcdd2"; dangerHoverText = "#c0392b";
-        successBorder = "#e84393"; successHoverBg = "#fce4ec"; successHoverText = "#d81b60";
-    }
-    else if (themeName == "Champion's Gold") {
-        bg = "#fdfbfa"; ctrlBg = "#ffffff"; textBase = "#2d3436"; textMuted = "#7f7b71"; fieldColor = "#d4af37";
-        hudBg = "rgba(255, 255, 255, 230)"; hudBorderP = "#d4af37"; hudBorderE = "#e74c3c";
-        btnBg = "#ffffff"; btnBorder = "#d4af37"; btnText = "#2d3436"; btnHoverBg = "#fff6d6"; btnHoverBorder = "#f1c40f";
-        dangerBorder = "#e74c3c"; dangerHoverBg = "#f2d7d5"; dangerHoverText = "#c0392b";
-        successBorder = "#d4af37"; successHoverBg = "#fef9e7"; successHoverText = "#b8860b";
-    }
-    else {
-        bg = "#e0e0e0"; ctrlBg = "#f4f6f8"; textBase = "#2c3e50"; textMuted = "#7f8c8d"; fieldColor = "#e74c3c";
-        hudBg = "rgba(255, 255, 255, 230)"; hudBorderP = "#3498db"; hudBorderE = "#e74c3c";
-        btnBg = "#ffffff"; btnBorder = "#bdc3c7"; btnText = "#2c3e50"; btnHoverBg = "#ecf0f1"; btnHoverBorder = "#3498db";
-        dangerBorder = "#c0392b"; dangerHoverBg = "#f2d7d5"; dangerHoverText = "#922b21";
-        successBorder = "#27ae60"; successHoverBg = "#d5f5e3"; successHoverText = "#1d8348";
-    }
+void SecretBossDialog::applyBossTheme() {
+    // Intense Hacker / Abyssal Boss Theme
+    QString bg = "#050000";
+    QString ctrlBg = "#0a0101";
+    QString textBase = "#ff3333";
+    QString textMuted = "#992222";
+    QString fieldColor = "#ff0000";
+    QString hudBg = "rgba(10, 1, 1, 230)";
+    QString hudBorderP = "#ff3333";
+    QString hudBorderE = "#ffffff";
+    QString btnBg = "#110202";
+    QString btnBorder = "#aa0000";
+    QString btnText = "#ff6666";
+    QString btnHoverBg = "#440000";
+    QString btnHoverBorder = "#ff0000";
+    QString dangerBorder = "#eccc68";
+    QString dangerHoverBg = "#592b2b";
+    QString dangerHoverText = "#eccc68";
+    QString successBorder = "#ff4757";
+    QString successHoverBg = "#4a1c1c";
+    QString successHoverText = "#ff6b81";
 
     this->setProperty("themeBtnBg", btnBg);
     this->setProperty("themeBtnBorder", btnBorder);
     this->setProperty("themeBtnTextMuted", textMuted);
 
     QString qss = QString(R"(
-        QDialog { background-color: %1; font-family: 'Segoe UI', Helvetica, sans-serif; }
+        QDialog { background-color: %1; font-family: 'Consolas', monospace; }
         QWidget#controlArea { background-color: %2; border-top: 2px solid %8; }
-        
-        QWidget#playerHud { background-color: %6; border: 2px solid %7; border-radius: %15; }
-        QWidget#enemyHud { background-color: %6; border: 2px solid %16; border-radius: %15; }
-        
+        QWidget#playerHud { background-color: %6; border: 2px solid %7; border-radius: 6px; }
+        QWidget#enemyHud { background-color: %6; border: 2px solid %16; border-radius: 6px; }
         QLabel#hudName { font-weight: 800; font-size: 13px; color: %3; background: transparent; }
         QLabel#hudHp { font-size: 11px; font-weight: bold; color: %4; background: transparent; }
-        
-        QPushButton#fieldInfoBtn {
-            background-color: %10;
-            color: %5;
-            font-size: 13px; font-weight: 800;
-            border: 1px solid %5;
-            border-radius: %15;
-            padding: 8px;
-            text-align: center;
-        }
-        QPushButton#fieldInfoBtn:hover {
-            background-color: %5;
-            color: %2;
-        }
-        
-        QListWidget#logWidget { 
-            background-color: %9; color: %11; border: 1px solid %8; 
-            border-radius: %15; padding: 6px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; 
-        }
-        QListWidget::item { padding: 4px; border-radius: 4px; }
+        QPushButton#fieldInfoBtn { background-color: %10; color: %5; font-size: 13px; font-weight: 800; border: 1px solid %5; border-radius: 6px; padding: 8px; }
+        QPushButton#fieldInfoBtn:hover { background-color: %5; color: %2; }
+        QListWidget#logWidget { background-color: %9; color: %11; border: 1px solid %8; border-radius: 6px; padding: 6px; font-family: 'Consolas', monospace; font-size: 12px; }
         QListWidget::item:selected { background-color: %12; color: #ffffff; }
-
-        QPushButton { 
-            background-color: %9; color: %11; font-size: 13px; font-weight: 800; 
-            padding: 10px; border: 1px solid %8; border-radius: %15; letter-spacing: 1px; 
-        }
+        QPushButton { background-color: %9; color: %11; font-size: 13px; font-weight: 800; padding: 10px; border: 1px solid %8; border-radius: 6px; }
         QPushButton:hover { background-color: %10; border: 1px solid %12; color: %3; }
-        
         QPushButton#actionBtn:hover { background-color: %10; border: 1px solid %12; }
         QPushButton#neutralBtn:hover { background-color: %10; border: 1px solid %4; color: %4; }
         QPushButton#dangerBtn:hover { border: 1px solid %13; background-color: %14; color: %17; }
         QPushButton#successBtn:hover { border: 1px solid %18; background-color: %19; color: %20; }
-    )").arg(bg, ctrlBg, textBase, textMuted, fieldColor, hudBg, hudBorderP, btnBorder, btnBg, btnHoverBg, btnText, btnHoverBorder, dangerBorder, dangerHoverBg, radius, hudBorderE, dangerHoverText, successBorder, successHoverBg, successHoverText);
+    )").arg(bg, ctrlBg, textBase, textMuted, fieldColor, hudBg, hudBorderP, btnBorder, btnBg, btnHoverBg, btnText, btnHoverBorder, dangerBorder, dangerHoverBg, "6px", hudBorderE, dangerHoverText, successBorder, successHoverBg, successHoverText);
 
     this->setStyleSheet(qss);
 }
 
-void BattleDialog::connectSignals() {
-    connect(fightBtn, &QPushButton::clicked, this, &BattleDialog::onFightClicked);
-    connect(switchBtn, &QPushButton::clicked, this, &BattleDialog::onSwitchClicked);
-    connect(megaBtn, &QPushButton::clicked, this, &BattleDialog::onMegaClicked);
-    connect(runBtn, &QPushButton::clicked, this, &BattleDialog::onRunClicked);
+void SecretBossDialog::connectSignals() {
+    connect(fightBtn, &QPushButton::clicked, this, &SecretBossDialog::onFightClicked);
+    connect(switchBtn, &QPushButton::clicked, this, &SecretBossDialog::onSwitchClicked);
+    connect(megaBtn, &QPushButton::clicked, this, &SecretBossDialog::onMegaClicked);
+    connect(runBtn, &QPushButton::clicked, this, &SecretBossDialog::onRunClicked);
     connect(backToActionsBtn, &QPushButton::clicked, [this]() { movePanel->hide(); actionPanel->show(); });
-    connect(cancelSwitchBtn, &QPushButton::clicked, this, &BattleDialog::onCancelSwitchClicked);
-    connect(confirmSwitchBtn, &QPushButton::clicked, this, &BattleDialog::onConfirmSwitchClicked);
-    connect(partyListWidget, &QListWidget::itemDoubleClicked, this, &BattleDialog::onPartyItemDoubleClicked);
-    connect(fieldInfoBtn, &QPushButton::clicked, this, &BattleDialog::onFieldInfoClicked);
+    connect(cancelSwitchBtn, &QPushButton::clicked, this, &SecretBossDialog::onCancelSwitchClicked);
+    connect(confirmSwitchBtn, &QPushButton::clicked, this, &SecretBossDialog::onConfirmSwitchClicked);
+    connect(partyListWidget, &QListWidget::itemDoubleClicked, this, &SecretBossDialog::onPartyItemDoubleClicked);
+    connect(fieldInfoBtn, &QPushButton::clicked, this, &SecretBossDialog::onFieldInfoClicked);
 
     connect(move1Btn, &QPushButton::clicked, [this]() { onMoveClicked(0); });
     connect(move2Btn, &QPushButton::clicked, [this]() { onMoveClicked(1); });
@@ -483,7 +413,57 @@ void BattleDialog::connectSignals() {
     connect(move4Btn, &QPushButton::clicked, [this]() { onMoveClicked(3); });
 }
 
-void BattleDialog::flushLog(bool endOfTurn) {
+// =========================================================
+// CUSTOM BOSS TRIGGERS & QUIZ LOGIC
+// =========================================================
+void SecretBossDialog::triggerOOPQuiz() {
+    OOPQuizDialog quiz(this);
+    int result = quiz.exec();
+
+    std::vector<std::string> stats = { "atk", "def", "spa", "spd", "spe" };
+    std::string chosenStat1 = stats[rand() % stats.size()];
+    std::string chosenStat2 = stats[rand() % stats.size()];
+    Pokemon& p = playerParty[currentPlayerIndex];
+
+    if (result == QDialog::Accepted) {
+        currentLog.push_back("Immortal Gabi Mircea: Correct! Your object allocation is flawless.");
+        p.modifyStat(chosenStat1, 2, currentLog);
+        p.modifyStat(chosenStat2, 2, currentLog);
+    }
+    else {
+        currentLog.push_back("Immortal Gabi Mircea: Wrong! Did you even read the documentation?!");
+        p.modifyStat(chosenStat1, -2, currentLog);
+    }
+
+    // --- SPRITE REFRESH FIX ---
+    playerSprite->show();
+    enemySprite->show();
+    updateBattleDisplay();
+    // --------------------------
+}
+
+void SecretBossDialog::checkBossTriggers() {
+    int aliveCount = 0;
+    for (const auto& ep : enemyParty) {
+        if (ep.getCurrentHp() > 0) aliveCount++;
+    }
+
+    if (aliveCount <= 3 && !hasShownHalfwayDialogue) {
+        hasShownHalfwayDialogue = true;
+        currentLog.push_back("Immortal Gabi Mircea: Your code is inefficient! Memory leak detected!");
+    }
+
+    if (aliveCount == 1 && !hasShownLastMonDialogue) {
+        hasShownLastMonDialogue = true;
+        currentLog.push_back("Immortal Gabi Mircea: Segmentation fault (core dumped)... I will manually override your runtime!");
+    }
+}
+
+// =========================================================
+// BATTLE ENGINE ROUTING
+// =========================================================
+
+void SecretBossDialog::flushLog(bool endOfTurn) {
     if (currentLog.empty()) return;
 
     QString block;
@@ -499,16 +479,12 @@ void BattleDialog::flushLog(bool endOfTurn) {
 
     QListWidgetItem* item = new QListWidgetItem(block.trimmed());
     logWidget->insertItem(0, item);
-
     currentLog.clear();
 
-    if (endOfTurn) {
-        turnCounter++;
-        isNewTurn = true;
-    }
+    if (endOfTurn) { turnCounter++; isNewTurn = true; }
 }
 
-QString BattleDialog::getTypeColor(const std::string& type) {
+QString SecretBossDialog::getTypeColor(const std::string& type) {
     if (type == "Normal") return "#A8A77A"; if (type == "Fire") return "#EE8130";
     if (type == "Water") return "#6390F0"; if (type == "Electric") return "#F7D02C";
     if (type == "Grass") return "#7AC74C"; if (type == "Ice") return "#96D9D6";
@@ -521,7 +497,7 @@ QString BattleDialog::getTypeColor(const std::string& type) {
     return "#34495e";
 }
 
-void BattleDialog::updateFieldDisplay() {
+void SecretBossDialog::updateFieldDisplay() {
     const FieldState& fs = engine->getFieldState();
     Pokemon& p = playerParty[currentPlayerIndex];
     Pokemon& e = enemyParty[currentEnemyIndex];
@@ -535,15 +511,12 @@ void BattleDialog::updateFieldDisplay() {
     if (fs.terrain != "None") txt += QString::fromStdString(fs.terrain).toUpper() + " | ";
 
     if (txt.isEmpty()) txt = "FIELD: CLEAR";
-    else {
-        txt.chop(3);
-        txt = "FIELD: " + txt;
-    }
+    else { txt.chop(3); txt = "FIELD: " + txt; }
 
     fieldInfoBtn->setText(txt + " (CLICK FOR DETAILS)");
 }
 
-void BattleDialog::onFieldInfoClicked() {
+void SecretBossDialog::onFieldInfoClicked() {
     QDialog dialog(this);
     dialog.setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::Dialog);
     dialog.setFixedSize(450, 400);
@@ -583,9 +556,7 @@ void BattleDialog::onFieldInfoClicked() {
         if (activeW == "None") wStr += " (Suppressed by Cloud Nine/Air Lock)";
         addItem(wStr, "#e67e22");
     }
-
     if (fs.terrain != "None") addItem(QString("Terrain: %1").arg(QString::fromStdString(fs.terrain)), "#27ae60");
-
     if (fs.trickRoom > 0) addItem(QString("Trick Room (%1 turns left)").arg(fs.trickRoom), "#9b59b6");
     if (fs.magicRoom > 0) addItem(QString("Magic Room (%1 turns left)").arg(fs.magicRoom), "#9b59b6");
     if (fs.wonderRoom > 0) addItem(QString("Wonder Room (%1 turns left)").arg(fs.wonderRoom), "#9b59b6");
@@ -619,7 +590,7 @@ void BattleDialog::onFieldInfoClicked() {
     dialog.exec();
 }
 
-void BattleDialog::updateBattleDisplay() {
+void SecretBossDialog::updateBattleDisplay() {
     Pokemon& p = playerParty[currentPlayerIndex];
     Pokemon& e = enemyParty[currentEnemyIndex];
 
@@ -634,9 +605,7 @@ void BattleDialog::updateBattleDisplay() {
         animateHpBar(true, lastPlayerHp, p.getCurrentHp(), p.getHp(), p.getStatus());
         lastPlayerHp = p.getCurrentHp();
     }
-    else {
-        animateHpBar(true, p.getCurrentHp(), p.getCurrentHp(), p.getHp(), p.getStatus());
-    }
+    else animateHpBar(true, p.getCurrentHp(), p.getCurrentHp(), p.getHp(), p.getStatus());
 
     QString pId = QString("%1").arg(p.getSpeciesId(), 4, 10, QChar('0'));
     QString pBase = QString::fromStdString(p.getName());
@@ -650,7 +619,6 @@ void BattleDialog::updateBattleDisplay() {
     if (!pSprite.isNull()) playerSprite->setPixmap(QPixmap::fromImage(pSprite.toImage().mirrored(true, false)).scaled(120, 120, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 
     enemyNameLabel->setText(QString("%1 Lv.%2").arg(QString::fromStdString(e.getName())).arg(e.getLevel()));
-
     enemyHpBar->setMaximum(e.getHp());
     if (lastEnemyHp == -1) {
         lastEnemyHp = e.getCurrentHp();
@@ -660,9 +628,7 @@ void BattleDialog::updateBattleDisplay() {
         animateHpBar(false, lastEnemyHp, e.getCurrentHp(), e.getHp(), e.getStatus());
         lastEnemyHp = e.getCurrentHp();
     }
-    else {
-        animateHpBar(false, e.getCurrentHp(), e.getCurrentHp(), e.getHp(), e.getStatus());
-    }
+    else animateHpBar(false, e.getCurrentHp(), e.getCurrentHp(), e.getHp(), e.getStatus());
 
     QString eId = QString("%1").arg(e.getSpeciesId(), 4, 10, QChar('0'));
     QString eBase = QString::fromStdString(e.getName());
@@ -677,7 +643,6 @@ void BattleDialog::updateBattleDisplay() {
 
     auto moves = p.getMoves();
     int validCount = 0;
-
     QString btnBg = this->property("themeBtnBg").toString();
     QString btnBorder = this->property("themeBtnBorder").toString();
     QString textMuted = this->property("themeBtnTextMuted").toString();
@@ -723,15 +688,12 @@ void BattleDialog::updateBattleDisplay() {
 
             btn->setIcon(QIcon("assets/Others/damage-category-icons/1x/" + QString::fromStdString(md.category) + "-white.png"));
             btn->setIconSize(QSize(24, 12));
-            btn->setText("  " + QString::fromStdString(md.name).toUpper());
 
-            int currentPP = p.getMovePP(moveId);
-            int maxPP = p.getMaxMovePP(moveId);
             if (forceValid && moveId == "struggle") {
                 btn->setText("  STRUGGLE\n  PP: --/--");
             }
             else {
-                btn->setText("  " + QString::fromStdString(md.name).toUpper() + "\n  PP: " + QString::number(currentPP) + "/" + QString::number(maxPP));
+                btn->setText("  " + QString::fromStdString(md.name).toUpper() + "\n  PP: " + QString::number(p.getMovePP(moveId)) + "/" + QString::number(p.getMaxMovePP(moveId)));
             }
 
             if (disabled) {
@@ -764,21 +726,15 @@ void BattleDialog::updateBattleDisplay() {
 
     if (validCount == 0 && moves.size() > 0) {
         updateMoveBtn(move1Btn, "struggle", true);
-        updateMoveBtn(move2Btn, "");
-        updateMoveBtn(move3Btn, "");
-        updateMoveBtn(move4Btn, "");
         move1Btn->setProperty("struggle_override", true);
     }
     else {
         move1Btn->setProperty("struggle_override", false);
     }
-
-    updateFieldDisplay();
 }
 
-void BattleDialog::onFightClicked() {
+void SecretBossDialog::onFightClicked() {
     Pokemon& p = playerParty[currentPlayerIndex];
-
     if (!p.getChargingMove().empty()) {
         currentLog.push_back(p.getNickname() + " is preparing its attack!");
         beginTurn(p.getChargingMove());
@@ -793,14 +749,13 @@ void BattleDialog::onFightClicked() {
     }
 }
 
-void BattleDialog::onSwitchClicked() {
+void SecretBossDialog::onSwitchClicked() {
     Pokemon& p = playerParty[currentPlayerIndex];
     if (!p.getChargingMove().empty() || p.getLockedTurns() > 0) {
         currentLog.push_back(p.getNickname() + " is locked in and cannot switch!");
         flushLog(false);
         return;
     }
-
     partyListWidget->clear();
     for (size_t i = 0; i < playerParty.size(); i++) {
         const Pokemon& poke = playerParty[i];
@@ -808,36 +763,25 @@ void BattleDialog::onSwitchClicked() {
         int cur = poke.getCurrentHp();
         int max = poke.getHp();
         int pct = (max > 0) ? (cur * 100) / max : 0;
-
-        QString text = QString("%1%2 - %3 (HP: %4/%5 - %6%)").arg(status)
-            .arg(QString::fromStdString(poke.getNickname()))
-            .arg(QString::fromStdString(poke.getName()))
-            .arg(cur).arg(max).arg(pct);
-
+        QString text = QString("%1%2 - %3 (HP: %4/%5 - %6%)").arg(status).arg(QString::fromStdString(poke.getNickname())).arg(QString::fromStdString(poke.getName())).arg(cur).arg(max).arg(pct);
         QListWidgetItem* item = new QListWidgetItem(text);
         item->setData(Qt::UserRole, static_cast<int>(i));
-
-        if (i == currentPlayerIndex || playerParty[i].getCurrentHp() <= 0) {
-            item->setFlags(item->flags() & ~Qt::ItemIsSelectable & ~Qt::ItemIsEnabled);
-        }
+        if (i == currentPlayerIndex || playerParty[i].getCurrentHp() <= 0) item->setFlags(item->flags() & ~Qt::ItemIsSelectable & ~Qt::ItemIsEnabled);
         partyListWidget->addItem(item);
     }
     actionPanel->hide();
     switchPanel->show();
 }
 
-void BattleDialog::onPartyItemDoubleClicked(QListWidgetItem* item) {
+void SecretBossDialog::onPartyItemDoubleClicked(QListWidgetItem* item) {
     if (!item) return;
-    int idx = item->data(Qt::UserRole).toInt();
-    if (idx < 0 || idx >= (int)playerParty.size()) return;
-    int partyId = playerParty[idx].getId();
-    SummaryDialog dialog(controller, partyId, this);
+    SummaryDialog dialog(controller, playerParty[item->data(Qt::UserRole).toInt()].getId(), this);
     dialog.exec();
 }
 
-void BattleDialog::onCancelSwitchClicked() { switchPanel->hide(); actionPanel->show(); }
+void SecretBossDialog::onCancelSwitchClicked() { switchPanel->hide(); actionPanel->show(); }
 
-void BattleDialog::onConfirmSwitchClicked() {
+void SecretBossDialog::onConfirmSwitchClicked() {
     if (!partyListWidget->currentItem()) return;
     int targetIdx = partyListWidget->currentItem()->data(Qt::UserRole).toInt();
     switchPanel->hide();
@@ -845,7 +789,7 @@ void BattleDialog::onConfirmSwitchClicked() {
     executeSwitch(targetIdx);
 }
 
-void BattleDialog::onMegaClicked() {
+void SecretBossDialog::onMegaClicked() {
     Pokemon& p = playerParty[currentPlayerIndex];
     if (!p.getChargingMove().empty() || p.getLockedTurns() > 0) {
         currentLog.push_back(p.getNickname() + " is locked in and cannot Mega Evolve now!");
@@ -856,26 +800,14 @@ void BattleDialog::onMegaClicked() {
     if (isPlayerMegaEvolved) { currentLog.push_back("You have already Mega Evolved a Pokémon!"); flushLog(false); return; }
 
     std::string item = playerParty[currentPlayerIndex].getHeldItem();
-
     bool hasDragonAscent = false;
-    for (const auto& m : p.getMoves()) {
-        if (m == "dragonascent") hasDragonAscent = true;
-    }
+    for (const auto& m : p.getMoves()) { if (m == "dragonascent") hasDragonAscent = true; }
 
-    if (QString::fromStdString(item).contains("ITE", Qt::CaseInsensitive) ||
-        (p.getName() == "Rayquaza" && hasDragonAscent)) {
-
+    if (QString::fromStdString(item).contains("ITE", Qt::CaseInsensitive) || (p.getName() == "Rayquaza" && hasDragonAscent)) {
         megaEvolveNextMove = true;
-        megaBtn->setStyleSheet(R"(
-            QPushButton { background-color: #8e44ad; color: #ffffff; font-size: 13px; font-weight: 800; padding: 10px; border: 1px solid #6c3483; border-radius: 6px; letter-spacing: 1px; }
-        )");
-
-        if (p.getName() == "Rayquaza") {
-            currentLog.push_back("A fervent wish has reached " + p.getNickname() + "!");
-        }
-        else {
-            currentLog.push_back("Your Mega Bracelet is reacting to " + item + "!");
-        }
+        megaBtn->setStyleSheet(R"(QPushButton { background-color: #8e44ad; color: #ffffff; font-size: 13px; font-weight: 800; padding: 10px; border: 1px solid #6c3483; border-radius: 6px; letter-spacing: 1px; })");
+        if (p.getName() == "Rayquaza") currentLog.push_back("A fervent wish has reached " + p.getNickname() + "!");
+        else currentLog.push_back("Your Mega Bracelet is reacting to " + item + "!");
         flushLog(false);
     }
     else {
@@ -884,35 +816,21 @@ void BattleDialog::onMegaClicked() {
     }
 }
 
-void BattleDialog::onRunClicked() {
-    Pokemon& p = playerParty[currentPlayerIndex];
-    if (!p.getChargingMove().empty() || p.getLockedTurns() > 0) {
-        currentLog.push_back(p.getNickname() + " is locked in and cannot flee!");
-        flushLog(false);
-        return;
-    }
-
-    currentLog.push_back("Got away safely!");
+void SecretBossDialog::onRunClicked() {
+    currentLog.push_back("Immortal Gabi Mircea: There are no 'break' statements in my exam! You cannot flee!");
     flushLog(false);
-    QTimer::singleShot(1000, this, &QDialog::reject);
 }
 
-void BattleDialog::onMoveClicked(int moveIndex) {
+void SecretBossDialog::onMoveClicked(int moveIndex) {
     movePanel->hide();
     actionPanel->show();
-
     Pokemon& p = playerParty[currentPlayerIndex];
-
-    if (moveIndex == 0 && move1Btn->property("struggle_override").toBool()) {
-        beginTurn("struggle");
-        return;
-    }
-
+    if (moveIndex == 0 && move1Btn->property("struggle_override").toBool()) { beginTurn("struggle"); return; }
     if (moveIndex >= p.getMoves().size()) return;
     beginTurn(p.getMoves()[moveIndex]);
 }
 
-void BattleDialog::beginTurn(const std::string& playerMove) {
+void SecretBossDialog::beginTurn(const std::string& playerMove) {
     queuedPlayerMove = playerMove;
     Pokemon& p = playerParty[currentPlayerIndex];
     Pokemon& e = enemyParty[currentEnemyIndex];
@@ -963,8 +881,7 @@ void BattleDialog::beginTurn(const std::string& playerMove) {
 
     AI::AiDetector smartAI(controller);
     std::string decisionToken = smartAI.chooseBestAction(
-        enemyParty, currentEnemyIndex,
-        playerParty, currentPlayerIndex,
+        enemyParty, currentEnemyIndex, playerParty, currentPlayerIndex,
         !isEnemyMegaEvolved, !isPlayerMegaEvolved
     );
 
@@ -977,9 +894,8 @@ void BattleDialog::beginTurn(const std::string& playerMove) {
         oldEnemy.isBatonPassing = false;
 
         currentEnemyIndex = targetIndex;
-        currentLog.push_back("Trainer withdrew " + oldEnemy.getName() + "!");
-        currentLog.push_back("Trainer sent out " + enemyParty[currentEnemyIndex].getName() + "!");
-
+        currentLog.push_back("Immortal Gabi Mircea withdrew " + oldEnemy.getName() + "!");
+        currentLog.push_back("Immortal Gabi Mircea sent out " + enemyParty[currentEnemyIndex].getName() + "!");
         lastEnemyHp = -1;
 
         engine->onSwitchIn(enemyParty[currentEnemyIndex], false, currentLog, &playerParty[currentPlayerIndex]);
@@ -987,7 +903,6 @@ void BattleDialog::beginTurn(const std::string& playerMove) {
 
         updateBattleDisplay();
         animateSwitchIn(false);
-
         queuedEnemyMove = "SKIP_TURN";
     }
     else {
@@ -1050,7 +965,7 @@ void BattleDialog::beginTurn(const std::string& playerMove) {
     executeNextPhase();
 }
 
-void BattleDialog::executeNextPhase() {
+void SecretBossDialog::executeNextPhase() {
     Pokemon& p = playerParty[currentPlayerIndex];
     Pokemon& e = enemyParty[currentEnemyIndex];
 
@@ -1088,7 +1003,7 @@ void BattleDialog::executeNextPhase() {
                 animateSwitchIn(true);
             }
             else {
-                currentLog.push_back(target.getName() + " was forced out! Trainer sent out " + party[currentIndex].getName() + "!");
+                currentLog.push_back(target.getName() + " was forced out! Immortal Gabi Mircea sent out " + party[currentIndex].getName() + "!");
                 engine->onSwitchIn(party[currentIndex], false, currentLog, &playerParty[currentPlayerIndex]);
                 lastEnemyHp = -1;
                 queuedEnemyMove = "SKIP_TURN";
@@ -1132,7 +1047,6 @@ void BattleDialog::executeNextPhase() {
         currentPhase = TurnPhase::SecondMove;
         Pokemon& attacker = playerGoesFirst ? p : e;
         Pokemon& defender = playerGoesFirst ? e : p;
-
         std::string move = playerGoesFirst ? queuedPlayerMove : queuedEnemyMove;
         std::string defMove = playerGoesFirst ? queuedEnemyMove : queuedPlayerMove;
         bool isPlayer = playerGoesFirst;
@@ -1140,22 +1054,18 @@ void BattleDialog::executeNextPhase() {
         if (move != "SKIP_TURN" && attacker.getCurrentHp() > 0 && defender.getCurrentHp() > 0) {
             MoveData md = controller.getMoveData(move);
             auto animCallback = [this, md](bool isP) { this->animateMoveEffect(isP, md.type, md.category); };
-
             engine->executeMove(attacker, defender, move, isPlayer, currentLog, defMove, animCallback);
             updateFieldDisplay();
 
             bool paused = false;
-
             if (defender.isSwitchingOut) {
                 if (defender.isForcedRandomSwitch) handleForcedRandomSwitch(defender, !isPlayer);
                 else paused = handleManualSwitch(defender, !isPlayer);
             }
-
             if (!paused && attacker.isSwitchingOut) {
                 if (attacker.isForcedRandomSwitch) handleForcedRandomSwitch(attacker, isPlayer);
                 else paused = handleManualSwitch(attacker, isPlayer);
             }
-
             if (paused) return;
         }
         executeNextPhase();
@@ -1164,7 +1074,6 @@ void BattleDialog::executeNextPhase() {
         currentPhase = TurnPhase::EndTurn;
         Pokemon& attacker = playerGoesFirst ? e : p;
         Pokemon& defender = playerGoesFirst ? p : e;
-
         std::string move = playerGoesFirst ? queuedEnemyMove : queuedPlayerMove;
         std::string defMove = playerGoesFirst ? queuedPlayerMove : queuedEnemyMove;
         bool isPlayer = !playerGoesFirst;
@@ -1172,254 +1081,104 @@ void BattleDialog::executeNextPhase() {
         if (move != "SKIP_TURN" && attacker.getCurrentHp() > 0 && defender.getCurrentHp() > 0) {
             MoveData md = controller.getMoveData(move);
             auto animCallback = [this, md](bool isP) { this->animateMoveEffect(isP, md.type, md.category); };
-
             engine->executeMove(attacker, defender, move, isPlayer, currentLog, defMove, animCallback);
             updateFieldDisplay();
 
             bool paused = false;
-
             if (defender.isSwitchingOut) {
                 if (defender.isForcedRandomSwitch) handleForcedRandomSwitch(defender, !isPlayer);
                 else paused = handleManualSwitch(defender, !isPlayer);
             }
-
             if (!paused && attacker.isSwitchingOut) {
                 if (attacker.isForcedRandomSwitch) handleForcedRandomSwitch(attacker, isPlayer);
                 else paused = handleManualSwitch(attacker, isPlayer);
             }
-
             if (paused) return;
         }
         executeNextPhase();
     }
     else if (currentPhase == TurnPhase::EndTurn) {
         engine->runEndOfTurn(p, e, currentLog);
-        engine->checkExtremeWeather(p, e, currentLog);
+        checkBossTriggers();
+
+        // --- NEW: MID-BATTLE OOP EXAM ---
+        if (turnCounter > 0 && turnCounter % 3 == 0) {
+            triggerOOPQuiz();
+        }
+        // ---------------------------------
+
         currentPhase = TurnPhase::Idle;
         isMidTurnSwitch = false;
-
         flushLog(true);
         updateBattleDisplay();
         checkFaint();
     }
 }
 
-void BattleDialog::executeSwitch(int newIndex) {
-    Pokemon& oldPoke = playerParty[currentPlayerIndex];
-    Pokemon& newPoke = playerParty[newIndex];
-
-    if (oldPoke.hasVolatile("transform")) oldPoke.fullyHeal();
-
-    if (oldPoke.isBatonPassing) {
-        newPoke.inheritBatonPass(oldPoke);
-        currentLog.push_back(newPoke.getNickname() + " inherited the Baton Pass stats!");
-    }
-    else {
-        oldPoke.resetStatStages();
-    }
-
-    oldPoke.isSwitchingOut = false;
-    oldPoke.isBatonPassing = false;
-
-    currentLog.push_back("Come back " + oldPoke.getNickname() + "!");
-
+void SecretBossDialog::executeSwitch(int newIndex) {
     currentPlayerIndex = newIndex;
-    megaEvolveNextMove = false;
-
-    megaBtn->setStyleSheet("");
-    cancelSwitchBtn->setEnabled(true);
-
-    currentLog.push_back("Go! " + newPoke.getNickname() + "!");
-
-    engine->onSwitchIn(newPoke, true, currentLog, &enemyParty[currentEnemyIndex]);
-    engine->checkExtremeWeather(playerParty[currentPlayerIndex], enemyParty[currentEnemyIndex], currentLog);
-    updateFieldDisplay();
-
+    currentLog.push_back("Go! " + playerParty[newIndex].getNickname() + "!");
+    engine->onSwitchIn(playerParty[newIndex], true, currentLog, &enemyParty[currentEnemyIndex]);
     lastPlayerHp = -1;
-
-    playerSprite->show();
-
     updateBattleDisplay();
     animateSwitchIn(true);
-
-    if (isMidTurnSwitch) {
-        isMidTurnSwitch = false;
-        executeNextPhase();
-    }
-    else if (isFaintSwitch) {
-        isFaintSwitch = false;
-        flushLog(false);
-    }
-    else {
-        Pokemon& e = enemyParty[currentEnemyIndex];
-
-        AI::AiDetector smartAI(controller);
-        std::string decisionToken = smartAI.chooseBestAction(
-            enemyParty, currentEnemyIndex,
-            playerParty, currentPlayerIndex,
-            !isEnemyMegaEvolved, !isPlayerMegaEvolved
-        );
-
-        if (decisionToken.rfind("switch:", 0) == 0) {
-            int targetIndex = std::stoi(decisionToken.substr(7));
-            Pokemon& oldEnemy = enemyParty[currentEnemyIndex];
-            if (oldEnemy.hasVolatile("transform")) oldEnemy.fullyHeal();
-            if (!oldEnemy.isBatonPassing) oldEnemy.resetStatStages();
-            oldEnemy.isBatonPassing = false;
-
-            currentEnemyIndex = targetIndex;
-            currentLog.push_back("Trainer withdrew " + oldEnemy.getName() + "!");
-            currentLog.push_back("Trainer sent out " + enemyParty[currentEnemyIndex].getName() + "!");
-
-            engine->onSwitchIn(enemyParty[currentEnemyIndex], false, currentLog, &playerParty[currentPlayerIndex]);
-            engine->checkExtremeWeather(playerParty[currentPlayerIndex], enemyParty[currentEnemyIndex], currentLog);
-            updateFieldDisplay();
-        }
-        else {
-            std::string eMove = decisionToken;
-            if (decisionToken.rfind("mega:", 0) == 0) {
-                eMove = decisionToken.substr(5);
-
-                std::string megaName = e.getName() + "-Mega";
-                std::string rawItem = e.getHeldItem();
-                std::string item = "";
-                for (char c : rawItem) { if (c != ' ') item += std::toupper(c); }
-
-                if (item == "CHARIZARDITEX") megaName = "Charizard-Mega-X";
-                else if (item == "CHARIZARDITEY") megaName = "Charizard-Mega-Y";
-                else if (item == "MEWTWONITEX") megaName = "Mewtwo-Mega-X";
-                else if (item == "MEWTWONITEY") megaName = "Mewtwo-Mega-Y";
-                else if (item == "ABSOLITEZ") megaName = "Absol-Mega-Z";
-                else if (item == "GARCHOMPITEZ") megaName = "Garchomp-Mega-Z";
-                else if (item == "LUCARIONITEZ") megaName = "Lucario-Mega-Z";
-
-                Pokemon megaForm = controller.getSpeciesDataByName(megaName);
-                if (megaForm.getName() != "") {
-                    e.megaEvolve(megaForm);
-                    currentLog.push_back(e.getNickname() + " Mega Evolved into " + megaForm.getName() + "!");
-                    isEnemyMegaEvolved = true;
-
-                    engine->onSwitchIn(e, false, currentLog, &playerParty[currentPlayerIndex]);
-                    engine->checkExtremeWeather(playerParty[currentPlayerIndex], enemyParty[currentEnemyIndex], currentLog);
-                    updateFieldDisplay();
-                }
-            }
-            else if (decisionToken.rfind("move:", 0) == 0) {
-                eMove = decisionToken.substr(5);
-            }
-
-            MoveData md = controller.getMoveData(eMove);
-            auto animCallback = [this, md](bool isP) { this->animateMoveEffect(isP, md.type, md.category); };
-            engine->executeMove(e, playerParty[currentPlayerIndex], eMove, false, currentLog, "switch", animCallback);
-            updateFieldDisplay();
-        }
-
-        flushLog(true);
-        updateBattleDisplay();
-        checkFaint();
-    }
 }
 
-void BattleDialog::executeEnemySwitch() {
-    Pokemon& oldEnemy = enemyParty[currentEnemyIndex];
-    oldEnemy.isSwitchingOut = false;
-
-    bool enemyHasMore = false;
-    int nextEnemy = -1;
+void SecretBossDialog::executeEnemySwitch() {
     for (size_t i = 0; i < enemyParty.size(); i++) {
         if (enemyParty[i].getCurrentHp() > 0 && i != currentEnemyIndex) {
-            enemyHasMore = true;
-            nextEnemy = i;
+            currentEnemyIndex = i;
+            currentLog.push_back("Immortal Gabi Mircea sent out " + enemyParty[currentEnemyIndex].getName() + "!");
+            engine->onSwitchIn(enemyParty[currentEnemyIndex], false, currentLog, &playerParty[currentPlayerIndex]);
+            lastEnemyHp = -1;
+            updateBattleDisplay();
+            animateSwitchIn(false);
             break;
         }
     }
-    if (enemyHasMore) {
-        if (oldEnemy.hasVolatile("transform")) oldEnemy.fullyHeal();
-        if (!oldEnemy.isBatonPassing) oldEnemy.resetStatStages();
-        oldEnemy.isBatonPassing = false;
-
-        currentEnemyIndex = nextEnemy;
-        currentLog.push_back("Trainer sent out " + enemyParty[currentEnemyIndex].getName() + "!");
-
-        engine->onSwitchIn(enemyParty[currentEnemyIndex], false, currentLog, &playerParty[currentPlayerIndex]);
-        engine->checkExtremeWeather(playerParty[currentPlayerIndex], enemyParty[currentEnemyIndex], currentLog);
-        updateFieldDisplay();
-
-        lastEnemyHp = -1;
-        updateBattleDisplay();
-        animateSwitchIn(false);
-    }
 }
 
-bool BattleDialog::checkFaint() {
+bool SecretBossDialog::checkFaint() {
     if (enemyParty[currentEnemyIndex].getCurrentHp() <= 0) {
-        engine->setFaintedCount(false, engine->getEnemySide().faintedCount + 1);
-
         currentLog.push_back("Opponent " + enemyParty[currentEnemyIndex].getName() + " fainted!");
         flushLog(false);
-
         animateFaint(false);
 
         bool enemyHasMore = false;
-        int nextIdx = -1;
-        for (size_t i = 0; i < enemyParty.size(); i++) {
-            if (enemyParty[i].getCurrentHp() > 0) {
-                nextIdx = i;
-                enemyHasMore = true;
-                break;
-            }
-        }
+        for (const auto& ep : enemyParty) if (ep.getCurrentHp() > 0) enemyHasMore = true;
 
         if (!enemyHasMore) {
             QTimer::singleShot(1000, this, [this]() {
-                QMessageBox::information(this, "Victory!", "You won the battle!");
+                currentLog.push_back("Immortal Gabi Mircea: 10/10. Your code compiled flawlessly. You pass.");
+                flushLog(false);
+                QMessageBox::information(this, "Victory!", "10/10. Your code compiled flawlessly. You pass.");
                 this->accept();
                 });
         }
         else {
-            QTimer::singleShot(600, this, [this, nextIdx]() {
-                currentEnemyIndex = nextIdx;
-                currentLog.push_back("Trainer sent out " + enemyParty[currentEnemyIndex].getName() + "!");
-
-                engine->onSwitchIn(enemyParty[currentEnemyIndex], false, currentLog, &playerParty[currentPlayerIndex]);
-                engine->checkExtremeWeather(playerParty[currentPlayerIndex], enemyParty[currentEnemyIndex], currentLog);
-                flushLog(false);
-
-                enemySprite->show();
-
-                updateBattleDisplay();
-                animateSwitchIn(false);
-                });
+            QTimer::singleShot(600, this, [this]() { executeEnemySwitch(); });
         }
         return true;
     }
 
     if (playerParty[currentPlayerIndex].getCurrentHp() <= 0) {
-        engine->setFaintedCount(true, engine->getPlayerSide().faintedCount + 1);
-
         currentLog.push_back(playerParty[currentPlayerIndex].getNickname() + " fainted!");
         flushLog(false);
-
         animateFaint(true);
 
         bool playerHasMore = false;
-        for (const auto& poke : playerParty) {
-            if (poke.getCurrentHp() > 0) { playerHasMore = true; break; }
-        }
+        for (const auto& poke : playerParty) if (poke.getCurrentHp() > 0) playerHasMore = true;
 
         if (!playerHasMore) {
-            currentLog.push_back("You have no more Pokémon left!");
-            currentLog.push_back("You blacked out...");
-            flushLog(false);
-
             QTimer::singleShot(1000, this, [this]() {
-                QMessageBox::critical(this, "Defeat", "You lost the battle...");
+                currentLog.push_back("Immortal Gabi Mircea: Compilation failed. See you at the autumn retake session.");
+                flushLog(false);
+                QMessageBox::critical(this, "Defeat", "You have failed the final exam.");
                 this->reject();
                 });
         }
         else {
             QTimer::singleShot(600, this, [this]() {
-                isFaintSwitch = true;
                 actionPanel->hide();
                 onSwitchClicked();
                 cancelSwitchBtn->setDisabled(true);
@@ -1430,7 +1189,7 @@ bool BattleDialog::checkFaint() {
     return false;
 }
 
-void BattleDialog::animateMoveEffect(bool isPlayerAttacker, const std::string& moveType, const std::string& category) {
+void SecretBossDialog::animateMoveEffect(bool isPlayerAttacker, const std::string& moveType, const std::string& category) {
     QLabel* attackerSprite = isPlayerAttacker ? playerSprite : enemySprite;
     QLabel* defenderSprite = isPlayerAttacker ? enemySprite : playerSprite;
 
@@ -1499,7 +1258,7 @@ void BattleDialog::animateMoveEffect(bool isPlayerAttacker, const std::string& m
     }
 }
 
-void BattleDialog::animateSwitchIn(bool isPlayer) {
+void SecretBossDialog::animateSwitchIn(bool isPlayer) {
     QLabel* sprite = isPlayer ? playerSprite : enemySprite;
     QPoint basePos = isPlayer ? QPoint(50, 100) : QPoint(330, 20);
 
@@ -1513,7 +1272,7 @@ void BattleDialog::animateSwitchIn(bool isPlayer) {
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void BattleDialog::animateHpBar(bool isPlayer, int startHp, int endHp, int maxHp, const std::string& status) {
+void SecretBossDialog::animateHpBar(bool isPlayer, int startHp, int endHp, int maxHp, const std::string& status) {
     QProgressBar* bar = isPlayer ? playerHpBar : enemyHpBar;
     QLabel* textLabel = isPlayer ? playerHpText : enemyHpText;
 
@@ -1561,7 +1320,7 @@ void BattleDialog::animateHpBar(bool isPlayer, int startHp, int endHp, int maxHp
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void BattleDialog::animateMegaEvolution(bool isPlayer) {
+void SecretBossDialog::animateMegaEvolution(bool isPlayer) {
     QLabel* sprite = isPlayer ? playerSprite : enemySprite;
 
     QGraphicsOpacityEffect* effect = new QGraphicsOpacityEffect(sprite);
@@ -1583,7 +1342,7 @@ void BattleDialog::animateMegaEvolution(bool isPlayer) {
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void BattleDialog::animateFaint(bool isPlayer) {
+void SecretBossDialog::animateFaint(bool isPlayer) {
     QLabel* sprite = isPlayer ? playerSprite : enemySprite;
 
     QPoint basePos = sprite->pos();

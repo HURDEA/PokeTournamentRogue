@@ -323,3 +323,15 @@ TrainerTeam TrainerRoster::getTournamentChampion() {
         makePoke("Kyogre", "Blue Orb", "Drizzle", {"hydropump", "icebeam", "thunder", "calmmind"}, 32, 0, 0, 32, 2, 0)
     } };
 }
+
+
+TrainerTeam TrainerRoster::getSecretBoss() {
+    return { "Gabi Mircea", "Immortal", "Trainers/trainer_gabi.png", {
+        makePoke("Rayquaza", "Life Orb", "Air Lock", {"dragonascent", "vcreate", "extremespeed", "swordsdance"}, 0, 32, 0, 0, 2, 32),
+        makePoke("Eternatus", "Black Sludge", "Pressure", {"dynamaxcannon", "recover", "sludgewave", "flamethrower"}, 32, 0, 32, 0, 2, 0),
+        makePoke("Calyrex-Shadow", "Focus Sash", "As One (Spectrier)", {"astralbarrage", "psyshock", "nastyplot", "drainingkiss"}, 0, 0, 0, 32, 2, 32),
+        makePoke("Zacian-Crowned", "Rusted Sword", "Intrepid Sword", {"behemothblade", "playrough", "closecombat", "swordsdance"}, 0, 32, 0, 0, 2, 32),
+        makePoke("Arceus", "Silk Scarf", "Multitype", {"extremespeed", "swordsdance", "shadowclaw", "earthquake"}, 32, 32, 0, 0, 2, 0),
+        makePoke("Ditto", "Choice Scarf", "Imposter", {"transform"}, 32, 0, 32, 0, 32, 0)
+    } };
+}

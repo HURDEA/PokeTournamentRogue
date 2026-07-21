@@ -1,5 +1,6 @@
 #include "TournamentDialog.h"
 #include "BattleDialog.h"
+#include "SecretBossDialog.h" // NEW
 #include "../Progression/TrainerRoster.h"
 #include <QVBoxLayout>
 #include <QGridLayout>
@@ -8,7 +9,6 @@
 #include <algorithm>
 #include <random>
 
-// --- NEW: HALL OF FAME UI ---
 class HallOfFameDialog : public QDialog {
 public:
     HallOfFameDialog(const std::vector<Pokemon>& team, QWidget* parent = nullptr) : QDialog(parent) {
@@ -76,7 +76,6 @@ public:
         setStyleSheet("QDialog { background-color: #0f1115; border: 4px solid #f1c40f; border-radius: 12px; }");
     }
 };
-// ----------------------------
 
 TournamentDialog::TournamentDialog(Controller& ctrl, QWidget* parent)
     : QDialog(parent), controller(ctrl), currentRound(1) {
@@ -140,8 +139,8 @@ void TournamentDialog::updateBracketUI() {
         bracketLabel->setText("Grand Finals\n\n(Opponent: The Champion)");
     }
     else {
-        bracketLabel->setText("HALL OF FAME\n\nYou are the Pokémon Champion!");
-        nextMatchBtn->setText("VIEW HALL OF FAME");
+        bracketLabel->setText("DEGREE SECURED\n\nYou survived Information Engineering!");
+        nextMatchBtn->setText("CONCLUDE JOURNEY");
     }
 }
 
@@ -152,8 +151,6 @@ void TournamentDialog::onNextMatchClicked() {
     }
 
     if (currentRound > 7) {
-        HallOfFameDialog hof(playerParty, this);
-        hof.exec();
         accept();
         return;
     }
@@ -170,7 +167,7 @@ void TournamentDialog::onNextMatchClicked() {
     else if (currentRound <= 6) {
         enemyTrainer = e4Pool[currentRound - 5];
     }
-    else {
+    else if (currentRound == 7) {
         enemyTrainer = TrainerRoster::getTournamentChampion();
     }
 
@@ -192,22 +189,33 @@ void TournamentDialog::onNextMatchClicked() {
     }
 
     int battleResult;
-
-    {
-        // Parent is strictly 'this', and we DO NOT hide the TournamentDialog
-        BattleDialog battleDialog(controller, playerParty, enemyParty, this);
-        battleResult = battleDialog.exec();
-    }
+    BattleDialog battleDialog(controller, playerParty, enemyParty, this);
+    battleResult = battleDialog.exec();
 
     if (battleResult == QDialog::Accepted) {
         currentRound++;
-        if (currentRound > 7) {
-            QMessageBox::information(this, "CHAMPION!", "You defeated Cynthia!\n\nYou have conquered the rogue-lite simulation and become the Pokémon Champion!");
+
+        if (currentRound == 8) {
+            HallOfFameDialog hof(playerParty, this);
+            hof.exec();
+
+            // --- SECRET BOSS INTERCEPT ---
+            QMessageBox::critical(this, "SYSTEM OVERRIDE", "RUNTIME EXCEPTION: MEMORY LEAK DETECTED.\n\nEntity 'GABI_MIRCEA' has overridden the main thread!");
+
+            SecretBossDialog bossBattle(controller, playerParty, this);
+            if (bossBattle.exec() == QDialog::Accepted) {
+                QMessageBox::information(this, "GRADUATED", "You actually defeated him! Your degree is safe.");
+                updateBracketUI();
+            }
+            else {
+                QMessageBox::critical(this, "EXPELLED", "You failed the final exam. See you next semester.");
+                reject();
+            }
         }
         else {
             QMessageBox::information(this, "Victory", "You won the match! Proceeding to the next round of the bracket.");
+            updateBracketUI();
         }
-        updateBracketUI();
     }
     else {
         QMessageBox::critical(this, "Eliminated", "You were defeated! Your tournament run is over. You must start from the Quarter-Finals again.");

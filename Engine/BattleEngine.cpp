@@ -131,9 +131,12 @@ void BattleEngine::onSwitchIn(Pokemon& p, bool isPlayer, std::vector<std::string
     p.removeVolatile("semi_invuln_dive");
     p.removeVolatile("semi_invuln_phantom");
 
+    // --- FIX: Reset Choice Lock on switch-in ---
+    p.lastMoveUsed = "";
+    // -------------------------------------------
+
     p.addVolatile("first_turn", 1);
 
-    // --- NEW: BULLETPROOF PRIMAL REVERSION ---
     std::string itemNorm = normalizeString(p.getHeldItem());
     std::string nameNorm = normalizeString(p.getName());
 
@@ -151,7 +154,6 @@ void BattleEngine::onSwitchIn(Pokemon& p, bool isPlayer, std::vector<std::string
             log.push_back(p.getNickname() + "'s Primal Reversion! It reverted to its primal form!");
         }
     }
-    // -----------------------------------------
 
     std::string abil = p.getAbility();
     if (abil == "As One (Glastrier)") abil = "Chilling Neigh";
@@ -346,7 +348,6 @@ void BattleEngine::onSwitchIn(Pokemon& p, bool isPlayer, std::vector<std::string
         };
     checkSeeds(p);
 }
-
 int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, const MoveData& move, bool isCrit, std::vector<std::string>& log, bool isFirstHit, bool isPlayerAttacker) {
     if (move.name == "Seismic Toss" || move.name == "Night Shade") return std::max(1, attacker.getLevel());
     if (move.name == "Dragon Rage") return 40;
@@ -1388,7 +1389,6 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
     }
     if (defender.hasVolatile("glaiverush")) bypassAccuracy = true;
 
-    // --- NEW: Weather & Toxic Accuracy Bypasses ---
     if (move.name == "Toxic" && (attacker.getType1() == "Poison" || attacker.getType2() == "Poison")) {
         bypassAccuracy = true;
     }
@@ -1400,7 +1400,6 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
     if (move.name == "Blizzard" && (weather == "Snow" || weather == "Hail")) {
         bypassAccuracy = true;
     }
-    // ----------------------------------------------
 
     if (!bypassAccuracy && move.accuracy <= 100 && aAbil != "No Guard" && dAbil != "No Guard") {
         int aAccStage = attacker.getStageAcc();
@@ -1417,14 +1416,15 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         if (accStage >= 0) accMultiplier = (3.0 + accStage) / 3.0;
         else accMultiplier = 3.0 / (3.0 - accStage);
 
-        // --- NEW: Weather Accuracy Penalties ---
         int baseAccuracy = move.accuracy;
         if ((move.name == "Thunder" || move.name == "Hurricane") && (weather == "Sun" || weather == "DesolateLand")) {
             baseAccuracy = 50;
         }
+        if (!moldBreaker && dAbil == "Wonder Skin" && move.category == "Status" && baseAccuracy > 50) {
+            baseAccuracy = 50;
+        }
 
         double effectiveAccuracy = baseAccuracy * accMultiplier;
-        // ---------------------------------------
 
         if (field.gravity > 0) effectiveAccuracy = std::min(100.0, effectiveAccuracy * 1.67);
         if (aAbil == "Compound Eyes") effectiveAccuracy = std::min(100.0, effectiveAccuracy * 1.3);
@@ -1739,12 +1739,15 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
         if (move.name == "Spite") {
             std::string lastM = defender.lastMoveUsed;
-            if (lastM.empty() || defender.getMovePP(lastM) <= 0) {
+            std::string normLastM = "";
+            for (char c : lastM) { if (c != ' ' && c != '-' && c != '\'') normLastM += std::tolower(c); }
+
+            if (lastM.empty() || defender.getMovePP(normLastM) <= 0) {
                 log.push_back("But it failed!");
             }
             else {
-                int reduced = std::min(4, defender.getMovePP(lastM));
-                defender.setMovePP(lastM, defender.getMovePP(lastM) - reduced);
+                int reduced = std::min(4, defender.getMovePP(normLastM));
+                defender.setMovePP(normLastM, defender.getMovePP(normLastM) - reduced);
                 log.push_back("It reduced the PP of " + defender.getNickname() + "'s " + lastM + " by " + std::to_string(reduced) + "!");
                 checkLeppaBerry(defender);
             }
@@ -2040,10 +2043,10 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
         bool isSemiInvuln = false;
         if (defender.hasVolatile("semi_invuln_dig")) {
-            if (move.name != "Earthquake" && move.name != "Magnitude" && move.name != "Fissure") isSemiInvuln = true;
+            if (move.name != "Earthquake" && move.name != "Magnitude" && move.name != "Fissure" && move.name != "Toxic") isSemiInvuln = true;
         }
         else if (defender.hasVolatile("semi_invuln_fly")) {
-            if (move.name != "Gust" && move.name != "Twister" && move.name != "Thunder" && move.name != "Hurricane" && move.name != "Smack Down" && move.name != "Sky Uppercut" && move.name != "Thousand Arrows") isSemiInvuln = true;
+            if (move.name != "Gust" && move.name != "Twister" && move.name != "Thunder" && move.name != "Hurricane" && move.name != "Smack Down" && move.name != "Sky Uppercut" && move.name != "Thousand Arrows" && move.name != "Toxic") isSemiInvuln = true;
         }
         else if (defender.hasVolatile("semi_invuln_dive")) {
             if (move.name != "Surf" && move.name != "Whirlpool") isSemiInvuln = true;
@@ -2157,6 +2160,11 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             else if (dAbil == "Innards Out" && aAbil != "Magic Guard") {
                 attacker.setCurrentHp(std::max(0, attacker.getCurrentHp() - dmg));
                 log.push_back(attacker.getNickname() + " was hurt by " + defender.getNickname() + "'s Innards Out!");
+            }
+
+            if (defender.hasVolatile("destinybond")) {
+                attacker.setCurrentHp(0);
+                log.push_back(attacker.getNickname() + " took its attacker down with it!");
             }
 
             if (aAbil == "Moxie" || aAbil == "Chilling Neigh") {
@@ -2822,6 +2830,28 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
             if (abil == "Bad Dreams" && opp.getStatus() == "slp" && opp.getAbility() != "Magic Guard") {
                 opp.setCurrentHp(std::max(0, opp.getCurrentHp() - std::max(1, opp.getHp() / 8)));
                 log.push_back(opp.getNickname() + " is tormented by Bad Dreams!");
+            }
+
+            if (p.hasVolatile("nightmare")) {
+                if (p.getStatus() == "slp" || abil == "Comatose") {
+                    p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 4)));
+                    log.push_back(p.getNickname() + " is locked in a nightmare!");
+                }
+                else {
+                    p.removeVolatile("nightmare");
+                }
+            }
+
+            if (p.hasVolatile("perishsong")) {
+                int count = p.getVolatileTurns("perishsong");
+                if (count == 0) {
+                    p.setCurrentHp(0);
+                    log.push_back(p.getNickname() + "'s perish count fell to 0!");
+                }
+                else {
+                    log.push_back(p.getNickname() + "'s perish count fell to " + std::to_string(count) + "!");
+                    p.addVolatile("perishsong", count - 1);
+                }
             }
 
             if (abil == "Moody") {

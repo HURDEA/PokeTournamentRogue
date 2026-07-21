@@ -88,7 +88,7 @@ else()
     message(STATUS "BUILD_TESTS is OFF - Tests/Tests.cpp will not be compiled into the executable.")
 endif()
 
-add_executable(PokeTournamentRogue ${APP_SOURCES} "Progression/Trainer.h" "Progression/ProgressionManager.cpp" "Dialog/GauntletDialog.h" "Dialog/GauntletDialog.cpp" "Dialog/TournamentDialog.h" "Dialog/TournamentDialog.cpp" "Progression/TrainerRoster.h" "Progression/TrainerRoster.cpp")
+add_executable(PokeTournamentRogue ${APP_SOURCES} "Progression/Trainer.h" "Progression/ProgressionManager.cpp" "Dialog/GauntletDialog.h" "Dialog/GauntletDialog.cpp" "Dialog/TournamentDialog.h" "Dialog/TournamentDialog.cpp" "Progression/TrainerRoster.h" "Progression/TrainerRoster.cpp" "Dialog/SecretBossDialog.h" "Dialog/SecretBossDialog.cpp")
 
 # Expose BUILD_TESTS value to the compiler as a macro (0 or 1)
 target_compile_definitions(PokeTournamentRogue PRIVATE BUILD_TESTS=$<BOOL:${BUILD_TESTS}>)
