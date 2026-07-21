@@ -270,47 +270,92 @@ void ShopDialog::populateTabs() {
 
     // Poké Balls Progression
     std::vector<std::pair<QString, int>> balls = { {"POKEBALL", 200}, {"HEALBALL", 300}, {"PREMIERBALL", 200} };
-    if (stage >= 2) balls.insert(balls.end(), { {"GREATBALL", 600}, {"SAFARIBALL", 500} });
-    if (stage >= 3) balls.insert(balls.end(), { {"ULTRABALL", 1200}, {"NETBALL", 1000}, {"DIVEBALL", 1000}, {"DUSKBALL", 1000}, {"TIMERBALL", 1000}, {"QUICKBALL", 1000} });
-    if (tournament) balls.insert(balls.end(), { {"MASTERBALL", 100000}, {"BEASTBALL", 1000}, {"CHERISHBALL", 2000} });
+    if (stage >= 2) {
+        balls.insert(balls.end(), { {"GREATBALL", 600}, {"SAFARIBALL", 500}, {"FASTBALL", 500}, {"FRIENDBALL", 500}, {"HEAVYBALL", 500}, {"LEVELBALL", 500}, {"LOVEBALL", 500}, {"LUREBALL", 500}, {"MOONBALL", 500} });
+    }
+    if (stage >= 3) {
+        balls.insert(balls.end(), { {"ULTRABALL", 1200}, {"NETBALL", 1000}, {"DIVEBALL", 1000}, {"DUSKBALL", 1000}, {"TIMERBALL", 1000}, {"QUICKBALL", 1000}, {"REPEATBALL", 1000}, {"NESTBALL", 1000}, {"LUXURYBALL", 1000} });
+    }
+    if (tournament) {
+        balls.insert(balls.end(), { {"MASTERBALL", 100000}, {"BEASTBALL", 1000}, {"CHERISHBALL", 2000}, {"PARKBALL", 2000}, {"SPORTBALL", 2000} });
+    }
     addItems(ballsList, balls);
 
     // Berries Progression
-    std::vector<std::pair<QString, int>> berries = { {"ORANBERRY", 100}, {"PECHABERRY", 200}, {"RAWSTBERRY", 200}, {"CHERIBERRY", 200}, {"CHESTOBERRY", 200} };
-    if (stage >= 2) berries.insert(berries.end(), { {"SITRUSBERRY", 300}, {"LUMBERRY", 400}, {"LEPPABERRY", 500} });
-    if (stage >= 3) berries.insert(berries.end(), { {"FIGYBERRY", 400}, {"WIKIBERRY", 400}, {"MAGOBERRY", 400}, {"AGUAVBERRY", 400}, {"IAPAPABERRY", 400}, {"LIECHIBERRY", 800}, {"SALACBERRY", 800} });
-    if (tournament) berries.insert(berries.end(), { {"OCCABERRY", 600}, {"PASSHOBERRY", 600}, {"WACANBERRY", 600}, {"YACHEBERRY", 600}, {"CHOPLEBERRY", 600}, {"SHUCABERRY", 600}, {"ROSELIBERRY", 600}, {"ENIGMABERRY", 1000} });
+    std::vector<std::pair<QString, int>> berries = { {"ORANBERRY", 100}, {"PECHABERRY", 200}, {"RAWSTBERRY", 200}, {"CHERIBERRY", 200}, {"CHESTOBERRY", 200}, {"PERSIMBERRY", 200}, {"ASPEARBERRY", 200} };
+    if (stage >= 2) {
+        berries.insert(berries.end(), { {"SITRUSBERRY", 300}, {"LUMBERRY", 400}, {"LEPPABERRY", 500} });
+    }
+    if (stage >= 3) {
+        berries.insert(berries.end(), { {"FIGYBERRY", 400}, {"WIKIBERRY", 400}, {"MAGOBERRY", 400}, {"AGUAVBERRY", 400}, {"IAPAPABERRY", 400}, {"LIECHIBERRY", 800}, {"SALACBERRY", 800}, {"PETAYABERRY", 800}, {"APICOTBERRY", 800}, {"LANSATBERRY", 800}, {"STARFBERRY", 800}, {"KEEBERRY", 800}, {"MARANGABERRY", 800} });
+    }
+    if (tournament) {
+        berries.insert(berries.end(), { {"OCCABERRY", 600}, {"PASSHOBERRY", 600}, {"WACANBERRY", 600}, {"YACHEBERRY", 600}, {"CHOPLEBERRY", 600}, {"SHUCABERRY", 600}, {"ROSELIBERRY", 600}, {"ENIGMABERRY", 1000}, {"MICLEBERRY", 1000}, {"CUSTAPBERRY", 1000}, {"JABOCABERRY", 1000}, {"ROWAPBERRY", 1000}, {"RINDOBERRY", 600}, {"KEBIABERRY", 600}, {"COBABERRY", 600}, {"PAYAPABERRY", 600}, {"TANGABERRY", 600}, {"CHARTIBERRY", 600}, {"KASIBBERRY", 600}, {"HABANBERRY", 600}, {"COLBURBERRY", 600}, {"BABIRIBERRY", 600}, {"CHILANBERRY", 600} });
+    }
     addItems(berriesList, berries);
 
     // Evo Stones Progression
     std::vector<std::pair<QString, int>> stones;
-    if (stage >= 2) stones.insert(stones.end(), { {"FIRESTONE", 2000}, {"WATERSTONE", 2000}, {"THUNDERSTONE", 2000}, {"LEAFSTONE", 2000}, {"MOONSTONE", 2000}, {"SUNSTONE", 2000} });
-    if (stage >= 3) stones.insert(stones.end(), { {"DAWNSTONE", 2000}, {"DUSKSTONE", 2000}, {"SHINYSTONE", 2000}, {"ICESTONE", 2000}, {"LINKCABLE", 2000}, {"UPGRADE", 2000}, {"METALALLOY", 2000} });
-    if (tournament) stones.insert(stones.end(), { {"UNIVERSALSTONE", 10000}, {"DUBIOUSDISC", 2000}, {"ELECTIRIZER", 2000}, {"MAGMARIZER", 2000} });
+    if (stage >= 2) {
+        stones.insert(stones.end(), { {"FIRESTONE", 2000}, {"WATERSTONE", 2000}, {"THUNDERSTONE", 2000}, {"LEAFSTONE", 2000}, {"MOONSTONE", 2000}, {"SUNSTONE", 2000}, {"OVALSTONE", 2000}, {"SWEETAPPLE", 2000}, {"TARTAPPLE", 2000}, {"SYRUPYAPPLE", 2000} });
+    }
+    if (stage >= 3) {
+        stones.insert(stones.end(), { {"DAWNSTONE", 2000}, {"DUSKSTONE", 2000}, {"SHINYSTONE", 2000}, {"ICESTONE", 2000}, {"LINKCABLE", 2000}, {"UPGRADE", 2000}, {"METALALLOY", 2000}, {"DRAGONSCALE", 2000}, {"KINGSROCK", 2000}, {"PRISMSCALE", 2000}, {"DEEPSEATOOTH", 2000}, {"DEEPSEASCALE", 2000}, {"SACHET", 2000}, {"WHIPPEDDREAM", 2000}, {"GALARICACUFF", 2000}, {"GALARICAWREATH", 2000}, {"AUSPICIOUSARMOR", 2000}, {"MALICIOUSARMOR", 2000}, {"CRACKEDPOT", 2000}, {"CHIPPEDPOT", 2000}, {"UNREMARKABLETEACUP", 2000}, {"MASTERPIECETEACUP", 2000} });
+    }
+    if (tournament) {
+        stones.insert(stones.end(), { {"UNIVERSALSTONE", 10000}, {"DUBIOUSDISC", 2000}, {"ELECTIRIZER", 2000}, {"MAGMARIZER", 2000}, {"PROTECTOR", 2000}, {"REAPERCLOTH", 2000}, {"ARMORFOSSIL", 1000}, {"CLAWFOSSIL", 1000}, {"COVERFOSSIL", 1000}, {"DOMEFOSSIL", 1000}, {"FOSSILIZEDBIRD", 1000}, {"FOSSILIZEDDINO", 1000}, {"FOSSILIZEDDRAKE", 1000}, {"FOSSILIZEDFISH", 1000}, {"HELIXFOSSIL", 1000}, {"JAWFOSSIL", 1000}, {"PLUMEFOSSIL", 1000}, {"ROOTFOSSIL", 1000}, {"SAILFOSSIL", 1000}, {"SKULLFOSSIL", 1000}, {"OLDAMBER", 1000} });
+    }
     addItems(stonesList, stones);
 
     // Boosts & Plates Progression
     std::vector<std::pair<QString, int>> boosts = { {"SILKSCARF", 1000}, {"MYSTICWATER", 1000}, {"CHARCOAL", 1000}, {"MIRACLESEED", 1000} };
-    if (stage >= 2) boosts.insert(boosts.end(), { {"MAGNET", 1000}, {"HARDSTONE", 1000}, {"BLACKBELT", 1000}, {"BLACKGLASSES", 1000}, {"NEVERMELTICE", 1000}, {"POISONBARB", 1000}, {"SHARPBEAK", 1000}, {"SPELLTAG", 1000}, {"TWISTEDSPOON", 1000}, {"METALCOAT", 1000}, {"DRAGONFANG", 1000}, {"SOFTSAND", 1000}, {"FAIRYFEATHER", 1000} });
-    if (stage >= 3) boosts.insert(boosts.end(), { {"FLAMEPLATE", 1500}, {"SPLASHPLATE", 1500}, {"MEADOWPLATE", 1500}, {"ZAPPLATE", 1500}, {"PIXIEPLATE", 1500}, {"DREADPLATE", 1500}, {"IRONPLATE", 1500} });
-    if (tournament) boosts.insert(boosts.end(), { {"NORMALGEM", 1000}, {"FIREGEM", 1000}, {"WATERGEM", 1000}, {"ELECTRICGEM", 1000}, {"GRASSGEM", 1000}, {"DRAGONGEM", 1000}, {"FAIRYGEM", 1000} });
+    if (stage >= 2) {
+        boosts.insert(boosts.end(), { {"MAGNET", 1000}, {"HARDSTONE", 1000}, {"BLACKBELT", 1000}, {"BLACKGLASSES", 1000}, {"NEVERMELTICE", 1000}, {"POISONBARB", 1000}, {"SHARPBEAK", 1000}, {"SPELLTAG", 1000}, {"TWISTEDSPOON", 1000}, {"METALCOAT", 1000}, {"DRAGONFANG", 1000}, {"SOFTSAND", 1000}, {"FAIRYFEATHER", 1000}, {"MUSCLEBAND", 1000}, {"WISEGLASSES", 1000} });
+    }
+    if (stage >= 3) {
+        boosts.insert(boosts.end(), { {"FLAMEPLATE", 1500}, {"SPLASHPLATE", 1500}, {"MEADOWPLATE", 1500}, {"ZAPPLATE", 1500}, {"PIXIEPLATE", 1500}, {"DREADPLATE", 1500}, {"IRONPLATE", 1500}, {"EARTHPLATE", 1500}, {"SKYPLATE", 1500}, {"MINDPLATE", 1500}, {"INSECTPLATE", 1500}, {"STONEPLATE", 1500}, {"SPOOKYPLATE", 1500}, {"DRACOPLATE", 1500}, {"ICICLEPLATE", 1500}, {"FISTPLATE", 1500}, {"TOXICPLATE", 1500} });
+    }
+    if (tournament) {
+        boosts.insert(boosts.end(), { {"NORMALGEM", 1000}, {"FIREGEM", 1000}, {"WATERGEM", 1000}, {"ELECTRICGEM", 1000}, {"GRASSGEM", 1000}, {"DRAGONGEM", 1000}, {"FAIRYGEM", 1000}, {"ICEGEM", 1000}, {"FIGHTINGGEM", 1000}, {"POISONGEM", 1000}, {"GROUNDGEM", 1000}, {"FLYINGGEM", 1000}, {"PSYCHICGEM", 1000}, {"BUGGEM", 1000}, {"ROCKGEM", 1000}, {"GHOSTGEM", 1000}, {"DARKGEM", 1000}, {"STEELGEM", 1000} });
+    }
     addItems(boostsList, boosts);
 
     // Battle Items Progression
-    std::vector<std::pair<QString, int>> battle = { {"ROCKYHELMET", 2000}, {"QUICKCLAW", 1500}, {"LIGHTBALL", 1500}, {"THICKCLUB", 1500} };
-    if (stage >= 2) battle.insert(battle.end(), { {"LEFTOVERS", 2000}, {"BLACKSLUDGE", 2000}, {"EVIOLITE", 2000}, {"EXPERTBELL", 2000}, {"LIGHTCLAY", 1500}, {"DAMPROCK", 1500}, {"HEATROCK", 1500}, {"SMOOTHROCK", 1500}, {"ICYROCK", 1500} });
-    if (stage >= 3) battle.insert(battle.end(), { {"LIFEORB", 2500}, {"CHOICEBAND", 2500}, {"CHOICESPECS", 2500}, {"CHOICESCARF", 2500}, {"HEAVYDUTYBOOTS", 2000}, {"FOCUSSASH", 2000}, {"ASSAULTVEST", 2000} });
-    if (tournament) battle.insert(battle.end(), { {"TOXICORB", 1500}, {"FLAMEORB", 1500}, {"WEAKNESSPOLICY", 2000}, {"WHITEHERB", 1500}, {"MENTALHERB", 1500}, {"POWERHERB", 1500}, {"CLEARAMULET", 2000}, {"COVERTCLOAK", 2000}, {"LOADEDDICE", 2000} });
+    std::vector<std::pair<QString, int>> battle = { {"ROCKYHELMET", 2000}, {"QUICKCLAW", 1500}, {"LIGHTBALL", 1500}, {"THICKCLUB", 1500}, {"BERRYJUICE", 500} };
+    if (stage >= 2) {
+        battle.insert(battle.end(), { {"LEFTOVERS", 2000}, {"BLACKSLUDGE", 2000}, {"EVIOLITE", 2000}, {"EXPERTBELT", 2000}, {"LIGHTCLAY", 1500}, {"DAMPROCK", 1500}, {"HEATROCK", 1500}, {"SMOOTHROCK", 1500}, {"ICYROCK", 1500}, {"TERRAINEXTENDER", 1500}, {"BIGROOT", 1500}, {"BINDINGBAND", 1500}, {"GRIPCLAW", 1500}, {"DESTINYKNOT", 1500}, {"METRONOME", 1500}, {"SCOPELENS", 1500}, {"WIDELENS", 1500}, {"ZOOMLENS", 1500} });
+    }
+    if (stage >= 3) {
+        battle.insert(battle.end(), { {"LIFEORB", 2500}, {"CHOICEBAND", 2500}, {"CHOICESPECS", 2500}, {"CHOICESCARF", 2500}, {"HEAVYDUTYBOOTS", 2000}, {"FOCUSSASH", 2000}, {"ASSAULTVEST", 2000}, {"EJECTBUTTON", 2000}, {"EJECTPACK", 2000}, {"REDCARD", 2000}, {"ROOMSERVICE", 2000}, {"BLUNDERPOLICY", 2000}, {"PUNCHINGGLOVE", 2000}, {"PROTECTIVEPADS", 2000}, {"SAFETYGOGGLES", 2000}, {"SHEDSHELL", 2000}, {"UTILITYUMBRELLA", 2000}, {"IRONBALL", 1500}, {"MACHOBRACE", 1500}, {"POWERANKLET", 1500}, {"POWERBAND", 1500}, {"POWERBELT", 1500}, {"POWERBRACER", 1500}, {"POWERLENS", 1500}, {"POWERWEIGHT", 1500} });
+    }
+    if (tournament) {
+        battle.insert(battle.end(), { {"TOXICORB", 1500}, {"FLAMEORB", 1500}, {"WEAKNESSPOLICY", 2000}, {"WHITEHERB", 1500}, {"MENTALHERB", 1500}, {"POWERHERB", 1500}, {"CLEARAMULET", 2000}, {"COVERTCLOAK", 2000}, {"LOADEDDICE", 2000}, {"BOOSTERENERGY", 2500}, {"ABILITYSHIELD", 2000}, {"ABSORBBULB", 1500}, {"CELLBATTERY", 1500}, {"LUMINOUSMOSS", 1500}, {"SNOWBALL", 1500}, {"ADRENALINEORB", 1500}, {"AIRBALLOON", 2000}, {"ELECTRICSEED", 1500}, {"GRASSYSEED", 1500}, {"MISTYSEED", 1500}, {"PSYCHICSEED", 1500}, {"MIRRORHERB", 2000}, {"THROATSPRAY", 1500}, {"ADAMANTCRYSTAL", 2500}, {"ADAMANTORB", 2500}, {"LUSTROUSGLOBE", 2500}, {"LUSTROUSORB", 2500}, {"GRISEOUSCORE", 2500}, {"GRISEOUSORB", 2500}, {"RUSTEDSHIELD", 2500}, {"RUSTEDSWORD", 2500}, {"BURNDRIVE", 2000}, {"CHILLDRIVE", 2000}, {"DOUSEDRIVE", 2000}, {"SHOCKDRIVE", 2000}, {"CORNERSTONEMASK", 2500}, {"HEARTHFLAMEMASK", 2500}, {"WELLSPRINGMASK", 2500}, {"BUGMEMORY", 2000}, {"DARKMEMORY", 2000}, {"DRAGONMEMORY", 2000}, {"ELECTRICMEMORY", 2000}, {"FAIRYMEMORY", 2000}, {"FIGHTINGMEMORY", 2000}, {"FIREMEMORY", 2000}, {"FLYINGMEMORY", 2000}, {"GHOSTMEMORY", 2000}, {"GRASSMEMORY", 2000}, {"GROUNDMEMORY", 2000}, {"ICEMEMORY", 2000}, {"POISONMEMORY", 2000}, {"PSYCHICMEMORY", 2000}, {"ROCKMEMORY", 2000}, {"STEELMEMORY", 2000}, {"WATERMEMORY", 2000}, {"VILEVIAL", 2500} });
+    }
     addItems(battleList, battle);
 
-    // Mega Stones (Only unlock when Tournament is reached)
+    // Mega Stones Progression (All locked until Tournament)
     std::vector<std::pair<QString, int>> megas;
     if (tournament) {
         megas = {
-            {"VENUSAURITE", 2500}, {"CHARIZARDITEX", 2500}, {"CHARIZARDITEY", 2500}, {"BLASTOISINITE", 2500},
-            {"ALAKAZITE", 2500}, {"GENGARITE", 2500}, {"KANGASKHANITE", 2500}, {"GYARADOSITE", 2500},
-            {"MEWTWONITEX", 2500}, {"MEWTWONITEY", 2500}, {"SCIZORITE", 2500}, {"TYRANITARITE", 2500},
-            {"SWAMPERTITE", 2500}, {"METAGROSSITE", 2500}, {"GARCHOMPITE", 2500}, {"LUCARIONITE", 2500}, {"SALAMENCITE", 2500}
+            {"ABOMASITE", 2500}, {"ABSOLITE", 2500}, {"ABSOLITEZ", 2500}, {"AERODACTYLITE", 2500}, {"AGGRONITE", 2500},
+            {"ALAKAZITE", 2500}, {"ALTARIANITE", 2500}, {"AMPHAROSITE", 2500}, {"AUDINITE", 2500}, {"BANETTITE", 2500},
+            {"BARBARACITE", 2500}, {"BAXCALIBRITE", 2500}, {"BEEDRILLITE", 2500}, {"BLASTOISINITE", 2500}, {"BLAZIKENITE", 2500},
+            {"BLUEORB", 2500}, {"CAMERUPTITE", 2500}, {"CHANDELURITE", 2500}, {"CHARIZARDITEX", 2500}, {"CHARIZARDITEY", 2500},
+            {"CHESNAUGHTITE", 2500}, {"CHIMECHITE", 2500}, {"CLEFABLITE", 2500}, {"CRABOMINITE", 2500}, {"CRUCIBELLITE", 2500},
+            {"DARKRANITE", 2500}, {"DELPHOXITE", 2500}, {"DIANCITE", 2500}, {"DRAGALGITE", 2500}, {"DRAGONINITE", 2500},
+            {"DRAMPANITE", 2500}, {"EELEKTROSSITE", 2500}, {"EMBOARITE", 2500}, {"EXCADRITE", 2500}, {"FALINKSITE", 2500},
+            {"FERALIGITE", 2500}, {"FLOETTITE", 2500}, {"FROSLASSITE", 2500}, {"GALLADITE", 2500}, {"GARCHOMPITE", 2500},
+            {"GARCHOMPITEZ", 2500}, {"GARDEVOIRITE", 2500}, {"GENGARITE", 2500}, {"GLALITITE", 2500}, {"GLIMMORANITE", 2500},
+            {"GOLISOPITE", 2500}, {"GOLURKITE", 2500}, {"GRENINJITE", 2500}, {"GYARADOSITE", 2500}, {"HAWLUCHANITE", 2500},
+            {"HEATRANITE", 2500}, {"HERACRONITE", 2500}, {"HOUNDOOMINITE", 2500}, {"KANGASKHANITE", 2500}, {"LATIASITE", 2500},
+            {"LATIOSITE", 2500}, {"LOPUNNITE", 2500}, {"LUCARIONITE", 2500}, {"LUCARIONITEZ", 2500}, {"MAGEARNITE", 2500},
+            {"MALAMARITE", 2500}, {"MANECTITE", 2500}, {"MAWILITE", 2500}, {"MEDICHAMITE", 2500}, {"MEGANIUMITE", 2500},
+            {"MEOWSTICITE", 2500}, {"METAGROSSITE", 2500}, {"MEWTWONITEX", 2500}, {"MEWTWONITEY", 2500}, {"PIDGEOTITE", 2500},
+            {"PINSIRITE", 2500}, {"PYROARITE", 2500}, {"RAICHUNITEX", 2500}, {"RAICHUNITEY", 2500}, {"REDORB", 2500},
+            {"SABLENITE", 2500}, {"SALAMENCITE", 2500}, {"SCEPTILITE", 2500}, {"SCIZORITE", 2500}, {"SCOLIPITE", 2500},
+            {"SCOVILLAINITE", 2500}, {"SCRAFTINITE", 2500}, {"SHARPEDONITE", 2500}, {"SKARMORITE", 2500}, {"SLOWBRONITE", 2500},
+            {"STARAPTITE", 2500}, {"STARMINITE", 2500}, {"STEELIXITE", 2500}, {"SWAMPERTITE", 2500}, {"TATSUGIRINITE", 2500},
+            {"TYRANITARITE", 2500}, {"VENUSAURITE", 2500}, {"VICTREEBELITE", 2500}, {"ZERAORITE", 2500}, {"ZYGARDITE", 2500}
         };
     }
     addItems(megasList, megas);

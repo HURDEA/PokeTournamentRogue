@@ -48,7 +48,10 @@ std::vector<std::string> Simulator::generateValidActions(const Pokemon& activePk
         std::string normItem = "";
         for (char c : item) if (c != ' ' && c != '-' && c != '\'') normItem += std::toupper(c);
 
-        if (normItem.find("ITE") != std::string::npos || normItem == "REDORB" || normItem == "BLUEORB") {
+        bool hasDragonAscent = false;
+        for (const auto& mId : moves) { if (mId == "dragonascent") hasDragonAscent = true; }
+
+        if (normItem.find("ITE") != std::string::npos || (activePkmn.getName() == "Rayquaza" && hasDragonAscent)) {
             for (const auto& mId : moves) {
                 if (!mId.empty() && mId != "None") {
                     if (activePkmn.getMovePP(mId) <= 0) continue;

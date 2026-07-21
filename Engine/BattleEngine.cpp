@@ -81,7 +81,6 @@ int BattleEngine::getEffectiveSpeed(const Pokemon& p, const Pokemon& opp, bool i
     std::string item = (field.magicRoom > 0) ? "NONE" : normalizeString(p.getHeldItem());
     std::string weather = getActiveWeather(p, opp);
 
-    // FIXED: Explicit side checking instead of Box 0
     const SideState& side = isPlayerSide ? playerSide : enemySide;
 
     if (abil == "Swift Swim" && (weather == "Rain" || weather == "PrimordialSea")) spd *= 2;
@@ -99,7 +98,6 @@ int BattleEngine::getEffectiveSpeed(const Pokemon& p, const Pokemon& opp, bool i
     if (item == "QUICKPOWDER" && p.getName() == "Ditto" && !p.hasVolatile("transform")) spd *= 2;
     if (item == "ROOMSERVICE" && field.trickRoom > 0) spd = std::floor(spd * 0.67);
 
-    // Apply Tailwind Multiplier
     if (side.tailwind > 0) spd *= 2;
 
     bool proto = (abil == "Protosynthesis" && (weather == "Sun" || weather == "DesolateLand" || item == "BOOSTERENERGY"));
@@ -127,15 +125,33 @@ void BattleEngine::onSwitchIn(Pokemon& p, bool isPlayer, std::vector<std::string
     p.lastDamageTaken = 0;
     p.lastDamageCategory = "";
 
-    // --- NEW: Hard reset multi-turn states so revived/switched Pokémon don't lock the UI ---
     p.setChargingMove("");
     p.removeVolatile("semi_invuln_dig");
     p.removeVolatile("semi_invuln_fly");
     p.removeVolatile("semi_invuln_dive");
     p.removeVolatile("semi_invuln_phantom");
-    // ----------------------------------------------------------------------------------------
 
     p.addVolatile("first_turn", 1);
+
+    // --- NEW: BULLETPROOF PRIMAL REVERSION ---
+    std::string itemNorm = normalizeString(p.getHeldItem());
+    std::string nameNorm = normalizeString(p.getName());
+
+    if (nameNorm == "KYOGRE" && itemNorm == "BLUEORB") {
+        Pokemon primal = controller.getSpeciesDataByName("Kyogre-Primal");
+        if (!primal.getName().empty()) {
+            p.megaEvolve(primal);
+            log.push_back(p.getNickname() + "'s Primal Reversion! It reverted to its primal form!");
+        }
+    }
+    else if (nameNorm == "GROUDON" && itemNorm == "REDORB") {
+        Pokemon primal = controller.getSpeciesDataByName("Groudon-Primal");
+        if (!primal.getName().empty()) {
+            p.megaEvolve(primal);
+            log.push_back(p.getNickname() + "'s Primal Reversion! It reverted to its primal form!");
+        }
+    }
+    // -----------------------------------------
 
     std::string abil = p.getAbility();
     if (abil == "As One (Glastrier)") abil = "Chilling Neigh";
@@ -346,11 +362,9 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
     std::string currentType = move.type;
     int currentPower = move.basePower;
 
-    // --- NEW: Double damage multipliers for Semi-Invulnerable states ---
     if (defender.hasVolatile("semi_invuln_dig") && (move.name == "Earthquake" || move.name == "Magnitude")) currentPower *= 2;
     if (defender.hasVolatile("semi_invuln_fly") && (move.name == "Gust" || move.name == "Twister")) currentPower *= 2;
     if (defender.hasVolatile("semi_invuln_dive") && (move.name == "Surf" || move.name == "Whirlpool")) currentPower *= 2;
-    // -------------------------------------------------------------------
 
     std::string aAbil = attacker.getAbility();
     std::string dAbil = defender.getAbility();
@@ -920,7 +934,6 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
     MoveData move = controller.getMoveData(moveId);
 
-    // --- NEW: Interruption Logic (Status/Flinch removes mid-air/underground states) ---
     auto interruptCharge = [&]() {
         if (!attacker.getChargingMove().empty()) {
             attacker.setChargingMove("");
@@ -931,7 +944,6 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             log.push_back(attacker.getNickname() + "'s attack was interrupted!");
         }
         };
-    // ----------------------------------------------------------------------------------
 
     auto checkLeppaBerry = [&](Pokemon& pkmn) {
         if (normalizeString(pkmn.getHeldItem()) == "LEPPABERRY") {
@@ -1095,7 +1107,6 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         }
     }
 
-    // --- APPLY INTERRUPTION TO ALL STATUS PREVENTIONS ---
     if (attacker.hasVolatile("flinch")) {
         log.push_back(attacker.getNickname() + " flinched and couldn't move!");
         attacker.removeVolatile("flinch");
@@ -1228,6 +1239,50 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
 
     log.push_back(attacker.getNickname() + " used " + move.name + "!");
 
+    if (move.name == "Sleep Talk") {
+        std::vector<std::string> validMoves;
+        for (const std::string& m : attacker.getMoves()) {
+            std::string mLower = m;
+            std::transform(mLower.begin(), mLower.end(), mLower.begin(), ::tolower);
+            mLower.erase(std::remove_if(mLower.begin(), mLower.end(), ::isspace), mLower.end());
+            mLower.erase(std::remove(mLower.begin(), mLower.end(), '-'), mLower.end());
+
+            if (m != "None" && !m.empty() && mLower != "sleeptalk") {
+                validMoves.push_back(m);
+            }
+        }
+        if (validMoves.empty()) {
+            log.push_back("But it failed!");
+            attacker.addVolatile("moved_this_turn", 1);
+            return;
+        }
+        std::string selectedMove = validMoves[rand() % validMoves.size()];
+        int oldPP = attacker.getMovePP(selectedMove);
+        executeMove(attacker, defender, selectedMove, isPlayerAttacking, log, defenderMoveId, animateFn);
+        attacker.setMovePP(selectedMove, oldPP);
+        return;
+    }
+
+    if (move.name == "Metronome") {
+        static const std::vector<std::string> metronomePool = {
+            "fireblast", "hydropump", "thunder", "earthquake", "psychic", "icebeam",
+            "aurasphere", "darkpulse", "dragonpulse", "shadowball", "playrough",
+            "meteormash", "bravebird", "closecombat", "flareblitz", "woodhammer",
+            "leafstorm", "stoneedge", "megahorn", "sludgebomb", "energyball",
+            "moonblast", "bugbuzz", "earthpower", "flashcannon", "surf",
+            "thunderbolt", "crunch", "xscissor", "swordsdance", "dragondance",
+            "nastyplot", "spore", "toxic", "willowisp", "thunderwave",
+            "destinybond", "explosion", "sacredfire", "spacialrend", "roaroftime",
+            "fly", "dig", "dive", "phantomforce", "highjumpkick", "gunkshot"
+        };
+        std::string selectedMove = metronomePool[rand() % metronomePool.size()];
+
+        int oldPP = attacker.getMovePP(selectedMove);
+        executeMove(attacker, defender, selectedMove, isPlayerAttacking, log, defenderMoveId, animateFn);
+        attacker.setMovePP(selectedMove, oldPP);
+        return;
+    }
+
     if (move.name == "Minimize") {
         attacker.modifyStat("evasion", 2, log);
         attacker.addVolatile("minimize", 999);
@@ -1333,6 +1388,20 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
     }
     if (defender.hasVolatile("glaiverush")) bypassAccuracy = true;
 
+    // --- NEW: Weather & Toxic Accuracy Bypasses ---
+    if (move.name == "Toxic" && (attacker.getType1() == "Poison" || attacker.getType2() == "Poison")) {
+        bypassAccuracy = true;
+    }
+
+    if ((move.name == "Thunder" || move.name == "Hurricane" || move.name == "Bleakwind Storm" || move.name == "Sandsear Storm" || move.name == "Wildbolt Storm") && (weather == "Rain" || weather == "PrimordialSea")) {
+        bypassAccuracy = true;
+    }
+
+    if (move.name == "Blizzard" && (weather == "Snow" || weather == "Hail")) {
+        bypassAccuracy = true;
+    }
+    // ----------------------------------------------
+
     if (!bypassAccuracy && move.accuracy <= 100 && aAbil != "No Guard" && dAbil != "No Guard") {
         int aAccStage = attacker.getStageAcc();
         int dEvaStage = defender.getStageEva();
@@ -1348,7 +1417,14 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
         if (accStage >= 0) accMultiplier = (3.0 + accStage) / 3.0;
         else accMultiplier = 3.0 / (3.0 - accStage);
 
-        double effectiveAccuracy = move.accuracy * accMultiplier;
+        // --- NEW: Weather Accuracy Penalties ---
+        int baseAccuracy = move.accuracy;
+        if ((move.name == "Thunder" || move.name == "Hurricane") && (weather == "Sun" || weather == "DesolateLand")) {
+            baseAccuracy = 50;
+        }
+
+        double effectiveAccuracy = baseAccuracy * accMultiplier;
+        // ---------------------------------------
 
         if (field.gravity > 0) effectiveAccuracy = std::min(100.0, effectiveAccuracy * 1.67);
         if (aAbil == "Compound Eyes") effectiveAccuracy = std::min(100.0, effectiveAccuracy * 1.3);
@@ -1962,7 +2038,6 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             }
         }
 
-        // --- NEW: Semi-Invulnerability Evasion ---
         bool isSemiInvuln = false;
         if (defender.hasVolatile("semi_invuln_dig")) {
             if (move.name != "Earthquake" && move.name != "Magnitude" && move.name != "Fissure") isSemiInvuln = true;
@@ -1992,7 +2067,6 @@ void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::
             }
             break;
         }
-        // -----------------------------------------
 
         bool canCrit = (dAbil != "Battle Armor" && dAbil != "Shell Armor");
         if (move.name == "Frost Breath" || move.name == "Storm Throw" || move.name == "Wicked Blow" || move.name == "Surging Strikes" || move.name == "Flower Trick") {
@@ -2611,7 +2685,6 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
     tickSide(playerSide, "Your team");
     tickSide(enemySide, "The opposing team");
 
-    // --- REBUILT POST-TURN LOGIC FOR ACCURATE EOT DAMAGE ---
     auto postTurn = [&](Pokemon& p, Pokemon& opp) {
         p.lastDamageTaken = 0;
         p.lastDamageCategory = "";
@@ -2637,7 +2710,6 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 }
                 };
 
-            // 1. WEATHER DAMAGE 
             if (abil != "Magic Guard") {
                 if (field.weather == "Sandstorm") {
                     if (p.getType1() != "Rock" && p.getType2() != "Rock" &&
@@ -2657,7 +2729,6 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 }
             }
 
-            // 2. TRAPPING & BINDING
             if (p.hasVolatile("partiallytrapped")) {
                 if (p.getVolatileTurns("partiallytrapped") == 1) {
                     log.push_back(p.getNickname() + " was freed from the trap!");
@@ -2670,7 +2741,6 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 }
             }
 
-            // 3. EOT HEALING & TIMERS
             if (p.hasVolatile("taunt") && p.getVolatileTurns("taunt") == 1) log.push_back(p.getNickname() + "'s taunt wore off!");
             if (p.hasVolatile("encore") && p.getVolatileTurns("encore") == 1) log.push_back(p.getNickname() + "'s encore ended!");
             if (p.hasVolatile("disable") && p.getVolatileTurns("disable") == 1) log.push_back(p.getNickname() + "'s disable ended!");
@@ -2814,7 +2884,6 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 p.setCurrentHp(std::min(p.getHp(), p.getCurrentHp() + std::max(1, p.getHp() / 8)));
                 log.push_back(p.getNickname() + "'s Poison Heal restored its HP!");
             }
-            // 4. STATUS DAMAGE 
             else if (abil != "Magic Guard") {
                 if (p.getStatus() == "brn") {
                     p.setCurrentHp(std::max(0, p.getCurrentHp() - std::max(1, p.getHp() / 16)));
@@ -2871,7 +2940,6 @@ void BattleEngine::runEndOfTurn(Pokemon& p1, Pokemon& p2, std::vector<std::strin
                 }
             }
 
-            // 5. SECONDARY HEALS (Aqua Ring and Ingrain)
             if (p.hasVolatile("aquaring") && p.getCurrentHp() < p.getHp()) {
                 int heal = std::max(1, p.getHp() / 16);
                 if (item == "BIGROOT") heal = std::floor(heal * 1.3);

@@ -95,8 +95,6 @@ BattleDialog::BattleDialog(Controller& ctrl, const std::vector<Pokemon>& pParty,
     isFaintSwitch(false), isMidTurnSwitch(false), currentPhase(TurnPhase::Idle),
     turnCounter(1), isNewTurn(true) {
 
-    // --- NEW: PP Safety Net ---
-    // Injects PP values for older saves or dynamically generated opponent teams
     for (auto& p : playerParty) {
         for (const auto& m : p.getMoves()) {
             if (!m.empty() && m != "None" && p.getMaxMovePP(m) <= 0) {
@@ -119,7 +117,6 @@ BattleDialog::BattleDialog(Controller& ctrl, const std::vector<Pokemon>& pParty,
         }
         e.fullyHeal();
     }
-    // --------------------------
 
     for (size_t i = 0; i < playerParty.size(); i++) {
         if (playerParty[i].getCurrentHp() > 0) { currentPlayerIndex = i; break; }
@@ -167,7 +164,6 @@ void BattleDialog::setupUI() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // --- BATTLE SCENE (STRICTLY FIXED 520x270 FOR ABSOLUTE POSITIONING) ---
     QWidget* battleScene = new QWidget(this);
     battleScene->setFixedSize(520, 270);
     battleScene->setObjectName("battleScene");
@@ -234,7 +230,6 @@ void BattleDialog::setupUI() {
 
     mainLayout->addWidget(battleScene, 0, Qt::AlignHCenter);
 
-    // --- CONTROL AREA (RESPONSIVE) ---
     QWidget* controlArea = new QWidget(this);
     controlArea->setObjectName("controlArea");
     QVBoxLayout* controlLayout = new QVBoxLayout(controlArea);
@@ -252,7 +247,6 @@ void BattleDialog::setupUI() {
     logWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     controlLayout->addWidget(logWidget);
 
-    // ACTION PANEL
     actionPanel = new QWidget();
     QGridLayout* actionGrid = new QGridLayout(actionPanel);
     actionGrid->setContentsMargins(0, 0, 0, 0);
@@ -284,7 +278,6 @@ void BattleDialog::setupUI() {
     actionGrid->addWidget(megaBtn, 1, 0); actionGrid->addWidget(runBtn, 1, 1);
     controlLayout->addWidget(actionPanel);
 
-    // MOVE PANEL
     movePanel = new QWidget();
     QGridLayout* moveGrid = new QGridLayout(movePanel);
     moveGrid->setContentsMargins(0, 0, 0, 0);
@@ -310,7 +303,6 @@ void BattleDialog::setupUI() {
     controlLayout->addWidget(movePanel);
     movePanel->hide();
 
-    // SWITCH PANEL
     switchPanel = new QWidget();
     QVBoxLayout* switchLayout = new QVBoxLayout(switchPanel);
     switchLayout->setContentsMargins(0, 0, 0, 0);
@@ -586,23 +578,19 @@ void BattleDialog::onFieldInfoClicked() {
 
     QString textBase = this->property("themeBtnTextMuted").toString();
 
-    // Weather
     if (fs.weather != "None") {
         QString wStr = QString("Weather: %1").arg(QString::fromStdString(fs.weather));
         if (activeW == "None") wStr += " (Suppressed by Cloud Nine/Air Lock)";
         addItem(wStr, "#e67e22");
     }
 
-    // Terrain
     if (fs.terrain != "None") addItem(QString("Terrain: %1").arg(QString::fromStdString(fs.terrain)), "#27ae60");
 
-    // Rooms
     if (fs.trickRoom > 0) addItem(QString("Trick Room (%1 turns left)").arg(fs.trickRoom), "#9b59b6");
     if (fs.magicRoom > 0) addItem(QString("Magic Room (%1 turns left)").arg(fs.magicRoom), "#9b59b6");
     if (fs.wonderRoom > 0) addItem(QString("Wonder Room (%1 turns left)").arg(fs.wonderRoom), "#9b59b6");
     if (fs.gravity > 0) addItem(QString("Gravity (%1 turns left)").arg(fs.gravity), "#34495e");
 
-    // Player Hazards
     QString pHaz = "Your Side: ";
     bool pHasHaz = false;
     if (ps.stealthRock) { pHaz += "Stealth Rock, "; pHasHaz = true; }
@@ -611,7 +599,6 @@ void BattleDialog::onFieldInfoClicked() {
     if (ps.stickyWeb) { pHaz += "Sticky Web, "; pHasHaz = true; }
     if (pHasHaz) { pHaz.chop(2); addItem(pHaz, "#3498db"); }
 
-    // Enemy Hazards
     QString eHaz = "Enemy Side: ";
     bool eHasHaz = false;
     if (es.stealthRock) { eHaz += "Stealth Rock, "; eHasHaz = true; }
@@ -772,7 +759,6 @@ void BattleDialog::updateBattleDisplay() {
 void BattleDialog::onFightClicked() {
     Pokemon& p = playerParty[currentPlayerIndex];
 
-    // --- NEW: Force Action if Charging or Locked ---
     if (!p.getChargingMove().empty()) {
         currentLog.push_back(p.getNickname() + " is preparing its attack!");
         beginTurn(p.getChargingMove());
@@ -848,17 +834,32 @@ void BattleDialog::onMegaClicked() {
     }
 
     if (isPlayerMegaEvolved) { currentLog.push_back("You have already Mega Evolved a Pokémon!"); flushLog(false); return; }
+
     std::string item = playerParty[currentPlayerIndex].getHeldItem();
-    if (QString::fromStdString(item).contains("ITE", Qt::CaseInsensitive) || item == "REDORB" || item == "BLUEORB") {
+
+    bool hasDragonAscent = false;
+    for (const auto& m : p.getMoves()) {
+        if (m == "dragonascent") hasDragonAscent = true;
+    }
+
+    if (QString::fromStdString(item).contains("ITE", Qt::CaseInsensitive) ||
+        (p.getName() == "Rayquaza" && hasDragonAscent)) {
+
         megaEvolveNextMove = true;
         megaBtn->setStyleSheet(R"(
             QPushButton { background-color: #8e44ad; color: #ffffff; font-size: 13px; font-weight: 800; padding: 10px; border: 1px solid #6c3483; border-radius: 6px; letter-spacing: 1px; }
         )");
-        currentLog.push_back("Your Mega Bracelet is reacting to " + item + "!");
+
+        if (p.getName() == "Rayquaza") {
+            currentLog.push_back("A fervent wish has reached " + p.getNickname() + "!");
+        }
+        else {
+            currentLog.push_back("Your Mega Bracelet is reacting to " + item + "!");
+        }
         flushLog(false);
     }
     else {
-        currentLog.push_back(playerParty[currentPlayerIndex].getNickname() + " isn't holding a valid Mega Stone!");
+        currentLog.push_back(p.getNickname() + " cannot Mega Evolve right now!");
         flushLog(false);
     }
 }
@@ -907,11 +908,11 @@ void BattleDialog::beginTurn(const std::string& playerMove) {
         else if (item == "CHARIZARDITEY") megaName = "Charizard-Mega-Y";
         else if (item == "MEWTWONITEX") megaName = "Mewtwo-Mega-X";
         else if (item == "MEWTWONITEY") megaName = "Mewtwo-Mega-Y";
-        else if (item == "REDORB") megaName = "Groudon-Primal";
-        else if (item == "BLUEORB") megaName = "Kyogre-Primal";
         else if (item == "ABSOLITEZ") megaName = "Absol-Mega-Z";
         else if (item == "GARCHOMPITEZ") megaName = "Garchomp-Mega-Z";
         else if (item == "LUCARIONITEZ") megaName = "Lucario-Mega-Z";
+
+        if (pkmn.getName() == "Rayquaza") megaName = "Rayquaza-Mega";
 
         Pokemon megaForm = controller.getSpeciesDataByName(megaName);
         if (megaForm.getName() != "") {
@@ -1020,7 +1021,6 @@ void BattleDialog::executeNextPhase() {
     Pokemon& p = playerParty[currentPlayerIndex];
     Pokemon& e = enemyParty[currentEnemyIndex];
 
-    // Helper 1: Resolves Roar, Whirlwind, Dragon Tail, Circle Throw, and Red Card
     auto handleForcedRandomSwitch = [&](Pokemon& target, bool targetIsPlayer) {
         target.isForcedRandomSwitch = false;
         target.isSwitchingOut = false;
@@ -1050,7 +1050,7 @@ void BattleDialog::executeNextPhase() {
                 currentLog.push_back(target.getNickname() + " was dragged out! Go! " + party[currentIndex].getNickname() + "!");
                 engine->onSwitchIn(party[currentIndex], true, currentLog, &enemyParty[currentEnemyIndex]);
                 lastPlayerHp = -1;
-                queuedPlayerMove = "SKIP_TURN"; // Ensure dragged out mon loses its move
+                queuedPlayerMove = "SKIP_TURN";
                 updateBattleDisplay();
                 animateSwitchIn(true);
             }
@@ -1058,7 +1058,7 @@ void BattleDialog::executeNextPhase() {
                 currentLog.push_back(target.getName() + " was forced out! Trainer sent out " + party[currentIndex].getName() + "!");
                 engine->onSwitchIn(party[currentIndex], false, currentLog, &playerParty[currentPlayerIndex]);
                 lastEnemyHp = -1;
-                queuedEnemyMove = "SKIP_TURN"; // Ensure dragged out mon loses its move
+                queuedEnemyMove = "SKIP_TURN";
                 updateBattleDisplay();
                 animateSwitchIn(false);
             }
@@ -1067,7 +1067,6 @@ void BattleDialog::executeNextPhase() {
         }
         };
 
-    // Helper 2: Resolves U-Turn, Volt Switch, Flip Turn, Parting Shot, Eject Pack, and Eject Button
     auto handleManualSwitch = [&](Pokemon& target, bool targetIsPlayer) {
         if (targetIsPlayer) {
             bool hasMore = false;
@@ -1083,7 +1082,7 @@ void BattleDialog::executeNextPhase() {
                 cancelSwitchBtn->setDisabled(true);
                 isMidTurnSwitch = true;
                 queuedPlayerMove = "SKIP_TURN";
-                return true; // Indicates the turn sequence must pause
+                return true;
             }
             else {
                 target.isSwitchingOut = false;
@@ -1114,19 +1113,17 @@ void BattleDialog::executeNextPhase() {
 
             bool paused = false;
 
-            // 1. Check if the Defender was forced out (Roar, Dragon Tail, Eject Button)
             if (defender.isSwitchingOut) {
                 if (defender.isForcedRandomSwitch) handleForcedRandomSwitch(defender, !isPlayer);
                 else paused = handleManualSwitch(defender, !isPlayer);
             }
 
-            // 2. Check if the Attacker forced themselves out (U-Turn, Red Card, Eject Pack)
             if (!paused && attacker.isSwitchingOut) {
                 if (attacker.isForcedRandomSwitch) handleForcedRandomSwitch(attacker, isPlayer);
                 else paused = handleManualSwitch(attacker, isPlayer);
             }
 
-            if (paused) return; // Halt turn progression until player chooses a new Pokémon
+            if (paused) return;
         }
         executeNextPhase();
     }
@@ -1259,8 +1256,6 @@ void BattleDialog::executeSwitch(int newIndex) {
                 else if (item == "CHARIZARDITEY") megaName = "Charizard-Mega-Y";
                 else if (item == "MEWTWONITEX") megaName = "Mewtwo-Mega-X";
                 else if (item == "MEWTWONITEY") megaName = "Mewtwo-Mega-Y";
-                else if (item == "REDORB") megaName = "Groudon-Primal";
-                else if (item == "BLUEORB") megaName = "Kyogre-Primal";
                 else if (item == "ABSOLITEZ") megaName = "Absol-Mega-Z";
                 else if (item == "GARCHOMPITEZ") megaName = "Garchomp-Mega-Z";
                 else if (item == "LUCARIONITEZ") megaName = "Lucario-Mega-Z";
@@ -1406,11 +1401,9 @@ void BattleDialog::animateMoveEffect(bool isPlayerAttacker, const std::string& m
     QLabel* attackerSprite = isPlayerAttacker ? playerSprite : enemySprite;
     QLabel* defenderSprite = isPlayerAttacker ? enemySprite : playerSprite;
 
-    // FIX: Hardcoded absolute coordinates guarantee sprites never drift off-screen
     QPoint attackerBasePos = isPlayerAttacker ? QPoint(50, 100) : QPoint(330, 20);
     QPoint defenderBasePos = isPlayerAttacker ? QPoint(330, 20) : QPoint(50, 100);
 
-    // 1. Attacker Lunge (Slower duration)
     QPoint lungePos = isPlayerAttacker ? attackerBasePos + QPoint(30, -30) : attackerBasePos + QPoint(-30, 30);
 
     QPropertyAnimation* lungeAnim = new QPropertyAnimation(attackerSprite, "pos", this);
@@ -1421,7 +1414,6 @@ void BattleDialog::animateMoveEffect(bool isPlayerAttacker, const std::string& m
     lungeAnim->setEasingCurve(QEasingCurve::InOutQuad);
     lungeAnim->start(QAbstractAnimation::DeleteWhenStopped);
 
-    // 2. Determine Elemental Color
     QColor effectColor = QColor(200, 200, 200);
     if (moveType == "Fire") effectColor = QColor(255, 69, 0);
     else if (moveType == "Water") effectColor = QColor(52, 152, 219);
@@ -1439,7 +1431,6 @@ void BattleDialog::animateMoveEffect(bool isPlayerAttacker, const std::string& m
     else if (moveType == "Fighting") effectColor = QColor(192, 48, 40);
     else if (moveType == "Steel") effectColor = QColor(183, 183, 206);
 
-    // 3. Apply Defender Color Flash (Slower duration)
     QTimer::singleShot(150, [this, defenderSprite, effectColor]() {
         QGraphicsColorizeEffect* colorEffect = new QGraphicsColorizeEffect(defenderSprite);
         colorEffect->setColor(effectColor);
@@ -1460,7 +1451,6 @@ void BattleDialog::animateMoveEffect(bool isPlayerAttacker, const std::string& m
         flashAnim->start(QAbstractAnimation::DeleteWhenStopped);
         });
 
-    // 4. Physical / Heavy Move Screen Shake (Slower duration, absolute reference)
     if (category == "Physical" || moveType == "Rock" || moveType == "Ground" || moveType == "Fighting") {
         QTimer::singleShot(170, [this, defenderSprite, defenderBasePos]() {
             QPropertyAnimation* shakeAnim = new QPropertyAnimation(defenderSprite, "pos", this);
