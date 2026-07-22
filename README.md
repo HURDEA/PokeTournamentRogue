@@ -15,7 +15,16 @@ An offline, C++17 competitive Pokemon rogue-lite battle simulator. This project 
 ---
 
 ### Gameplay Showcase
-*(Take 2 or 3 screenshots of your game running—like the Boss dialog, the Battle screen, and the Hall of Fame—and drag-and-drop them right here into GitHub to upload them!)*
+<img width="700" height="1042" alt="SCRN1" src="https://github.com/user-attachments/assets/829d9799-2b11-43f0-adb4-57bf25873bc5" />
+<img width="610" height="860" alt="SCRN2" src="https://github.com/user-attachments/assets/cf66784d-d633-460c-b880-12dbf52d3290" />
+<img width="677" height="851" alt="SCRN3" src="https://github.com/user-attachments/assets/5b9beed2-07cc-419a-9a0a-23561dfb18a1" />
+<img width="434" height="408" alt="SCRN4" src="https://github.com/user-attachments/assets/36c81cb0-ac0d-48d6-ac0f-473cece635b4" />
+<img width="676" height="936" alt="SCRN5" src="https://github.com/user-attachments/assets/8e2513fb-5660-4ebf-a07b-cd40c4172ad6" />
+<img width="819" height="918" alt="SCRN6" src="https://github.com/user-attachments/assets/6ae507f1-5a4a-4691-b375-3cb77b84c890" />
+<img width="1191" height="791" alt="SCRN7" src="https://github.com/user-attachments/assets/d7145e86-ecff-43d3-9f90-8c2252a10392" />
+<img width="537" height="182" alt="SCRN8" src="https://github.com/user-attachments/assets/660eb3e9-d050-4ddb-be71-2c6202d3d507" />
+<img width="574" height="800" alt="SCRN9-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/5d973939-1b67-4479-b8cc-f645a472f66d" />
+
 
 ---
 
