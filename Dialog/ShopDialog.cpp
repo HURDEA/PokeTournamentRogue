@@ -111,7 +111,7 @@ void ShopDialog::setupUI() {
     connectList(ballsList); connectList(berriesList); connectList(stonesList);
     connectList(boostsList); connectList(megasList); connectList(battleList);
 
-    setWindowTitle("The Poké Mart - Pokémon Champions");
+    setWindowTitle("The Poké Mart - PokeTournamentRogue");
 
     setMinimumSize(600, 650);
     resize(650, 700);

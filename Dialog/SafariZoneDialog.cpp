@@ -189,7 +189,7 @@ void SafariZoneDialog::setupUI() {
 
     mainLayout->addWidget(controlArea);
 
-    setWindowTitle("Safari Zone Encounter - Pokémon Champions");
+    setWindowTitle("Safari Zone Encounter - PokeTournamentRogue");
     setMinimumSize(540, 620);
     resize(540, 650);
 }

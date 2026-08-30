@@ -85,7 +85,7 @@ void MainHall::setupUI() {
     mainLayout->addLayout(topBarLayout);
 
     // --- Header Typography ---
-    titleLabel = new QLabel("POKÉMON CHAMPIONS", this);
+    titleLabel = new QLabel("PokeTournamentRogue", this);
     titleLabel->setAlignment(Qt::AlignCenter);
 
     subtitleLabel = new QLabel("GRAND TOURNAMENT", this);
@@ -158,7 +158,7 @@ void MainHall::setupUI() {
     mainLayout->addStretch();
 
     setCentralWidget(centralWidget);
-    setWindowTitle("Pokémon Champions - Client");
+    setWindowTitle("PokeTournamentRogue - Client");
 
     // Completely responsive: Sets a healthy minimum, allowing it to stretch cleanly.
     setMinimumSize(550, 950);
@@ -383,7 +383,7 @@ void MainHall::showHowToPlay() {
     rulesText->setWordWrap(true);
     rulesText->setStyleSheet("font-size: 14px; line-height: 1.5;"); // Boosted size for readability
     rulesText->setText(
-        "<b>Welcome to Pokémon Champions!</b><br><br>"
+        "<b>Welcome to PokeTournamentRogue!</b><br><br>"
         "This is a Rogue-lite Pokémon Simulator. Your ultimate goal is to conquer the Champion's Tournament, but you must build your team, optimize your strategies, and unlock resources to get there.<br><br>"
         "<b>1. Building Your Team</b><br>"
         "Head to the <i>Wild Area</i> to catch wild Pokémon. Catch rates depend heavily on the type of Poké Ball used and current battle conditions.<br><br>"

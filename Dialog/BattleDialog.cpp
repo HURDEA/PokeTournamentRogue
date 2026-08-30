@@ -331,7 +331,7 @@ void BattleDialog::setupUI() {
     switchPanel->hide();
 
     mainLayout->addWidget(controlArea);
-    setWindowTitle("Pokémon Champions - Battle Screen");
+    setWindowTitle("PokeTournamentRogue - Battle Screen");
 
     setMinimumSize(540, 680);
     resize(540, 720);

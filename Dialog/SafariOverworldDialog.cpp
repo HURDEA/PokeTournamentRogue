@@ -83,7 +83,7 @@ void SafariOverworldDialog::setupUI() {
     bottomLayout->addWidget(exitButton, 1);
     mainLayout->addLayout(bottomLayout);
 
-    setWindowTitle("Wild Area Exploration - Pokémon Champions");
+    setWindowTitle("Wild Area Exploration - PokeTournamentRogue");
     setMinimumSize(480, 620);
     resize(480, 650);
 }

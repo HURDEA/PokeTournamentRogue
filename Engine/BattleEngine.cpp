@@ -420,6 +420,17 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
         currentPower = 25;
         currentType = "Dark";
     }
+    // --- FIX: Add dynamic base power for Fishous Rend, Bolt Beak, and Last Respects ---
+    else if (move.name == "Fishous Rend" || move.name == "Bolt Beak") {
+        if (!defender.hasVolatile("moved_this_turn")) {
+            currentPower *= 2;
+        }
+    }
+    else if (move.name == "Last Respects") {
+        int fainted = isPlayerAttacker ? playerSide.faintedCount : enemySide.faintedCount;
+        currentPower += (50 * fainted);
+    }
+    // ----------------------------------------------------------------------------------
 
     if (move.name.find("Hidden Power") != std::string::npos) {
         std::vector<std::string> allTypes = { "Normal", "Fire", "Water", "Electric", "Grass", "Ice", "Fighting", "Poison", "Ground", "Flying", "Psychic", "Bug", "Rock", "Ghost", "Dragon", "Dark", "Steel", "Fairy" };
@@ -554,7 +565,7 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
         return std::find(nfe.begin(), nfe.end(), name) != nfe.end();
         };
     if (dItem == "EVIOLITE" && isNFE(defender.getName())) {
-        d *= 1.5; // Eviolite boosts both Def and SpDef
+        d *= 1.5;
     }
 
     const SideState& defSide = isPlayerAttacker ? enemySide : playerSide;
@@ -919,7 +930,6 @@ int BattleEngine::calculateDamageInternal(Pokemon& attacker, Pokemon& defender, 
 
     return std::max(1, actualDmg);
 }
-
 void BattleEngine::executeMove(Pokemon& attacker, Pokemon& defender, const std::string& moveId, bool isPlayerAttacking, std::vector<std::string>& log, const std::string& defenderMoveId, std::function<void(bool)> animateFn) {
     if (attacker.getCurrentHp() <= 0) return;
 

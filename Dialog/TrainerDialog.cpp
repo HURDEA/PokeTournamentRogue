@@ -158,7 +158,7 @@ void TrainerDialog::setupUI() {
     connect(learnBtn, &QPushButton::clicked, this, &TrainerDialog::onLearnMoveClicked);
     connect(closeBtn, &QPushButton::clicked, this, &QDialog::accept);
 
-    setWindowTitle("Training Hub - Pokémon Champions");
+    setWindowTitle("Training Hub - PokeTournamentRogue");
 
     setMinimumSize(800, 650);
     resize(850, 700);
