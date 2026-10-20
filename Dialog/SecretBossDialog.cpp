@@ -122,9 +122,9 @@ SecretBossDialog::SecretBossDialog(Controller& ctrl, const std::vector<Pokemon>&
             baseData.getType1(), baseData.getType2(), baseData.getBaseHp(),
             baseData.getBaseAttack(), baseData.getBaseDefense(), baseData.getBaseSpAttack(),
             baseData.getBaseSpDefense(), baseData.getBaseSpeed(),
-            100, // <--- FORCED LEVEL 100
+            60, // <--- FORCED LEVEL 100
             ep.heldItem, -1, baseData.getName(), ep.moves,
-            "Serious", ep.ability, 31, 31, 31, 31, 31, 31, // Max DVs
+            "Serious", ep.ability, 0, 0, 0, 0, 0, 0, // Max DVs
             baseData.getWeight(), baseData.getHappiness()
         );
 
